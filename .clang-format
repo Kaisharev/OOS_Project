@@ -1,0 +1,18 @@
+BasedOnStyle: Google
+Language: Cpp
+Standard: Latest
+
+ColumnLimit: 135
+
+IndentAccessModifiers: true
+IndentWidth: 4
+UseTab: Never
+
+AlignEscapedNewlines: Left
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortLambdasOnASingleLine: Empty
+AlwaysBreakTemplateDeclarations: true
+BreakConstructorInitializers: BeforeComma
+IndentPPDirectives: AfterHash
+PointerAlignment: Left
+SpaceBeforeParens: Always

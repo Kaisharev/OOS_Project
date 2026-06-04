@@ -1,0 +1,31 @@
+{
+    "settings": {
+        "max_running_agents": 3
+    },
+    "vfs": {
+        "mounts": [
+            { "source": "examples/01_no_conflict/input/shared", "target": "/shared", "mode": "ro" },
+            { "source": "examples/01_no_conflict/input/work", "target": "/work", "mode": "rw" }
+        ]
+    },
+    "agents": [
+        {
+            "id": "A1",
+            "priority": 1,
+            "arrival_time": 0,
+            "script": "examples/01_no_conflict/agents/a1.txt"
+        },
+        {
+            "id": "A2",
+            "priority": 2,
+            "arrival_time": 0,
+            "script": "examples/01_no_conflict/agents/a2.txt"
+        },
+        {
+            "id": "A3",
+            "priority": 3,
+            "arrival_time": 2,
+            "script": "examples/01_no_conflict/agents/a3.txt"
+        }
+    ]
+}
