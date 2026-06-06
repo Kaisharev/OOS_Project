@@ -1,6 +1,7 @@
+#include <fstream>
 #include <string>
 #include <vector>
-
+#pragma once
 #include "../Agent.hpp"
 #include "../Operations/Operations.hpp"
 
@@ -27,9 +28,10 @@ class AgentParser {
 
     private:
         std::string script_path;
-        std::vector<Operations> ops;
+        std::vector<Operation> ops;
         AgentParser () = delete;
+        static std::vector<std::string_view> tokenize (std::string_view line);
 
     public:
-        Agent Parse (const std::string& script_path);
-}
+        static Agent Parse (const std::string& script_path);
+};

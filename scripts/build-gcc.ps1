@@ -23,3 +23,14 @@ if ($Clean -and (Test-Path $FullBuildDir)) {
 
 cmake -S $ProjectRoot -B $FullBuildDir -G "MinGW Makefiles" -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=$BuildType
 cmake --build $FullBuildDir --parallel
+Write-Host "Running tests..."
+Push-Location $FullBuildDir
+try {
+    ctest --output-on-failure -C $BuildType
+    $testExit = $LASTEXITCODE
+} finally {
+    Pop-Location
+}
+if ($testExit -ne 0) {
+    throw "Neki testovi nisu prošli. Exit code: $testExit"
+}

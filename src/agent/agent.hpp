@@ -1,14 +1,16 @@
 #include <Vector>
 #include <string>
 #include <unordered_map>
-
-#include "/Operations/Operations.hpp"
+#pragma once
+#include "../core/AgentState.hpp"
+#include "../core/FileHandle.hpp"
+#include "Operations/Operations.hpp"
 
 struct Agent {
         std::string id;
         int priority;
         int arrival_time;
-        std::vector<Operations> ops;
+        std::vector<Operation> ops;
         int op_index = 0;
         AgentState state = AgentState::READY;
 
@@ -23,7 +25,7 @@ struct Agent {
         bool has_next_op () const {
             return op_index < (int)ops.size ();
         }
-        Operations& current_op () {
+        Operation& current_op () {
             return ops[op_index];
         }
         void advance_op () {

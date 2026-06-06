@@ -13,7 +13,7 @@
             "id": "A1",
             "priority": 1,
             "arrival_time": 0,
-            "script": "examples/01_no_conflict/agents/a1.txt"
+            "script": "config/agent_config/standard.txt"
         },
         {
             "id": "A2",

@@ -62,6 +62,7 @@ vcpkg_installed/
 
 # debug information files
 *.dwo
+build/
 build-gcc/
 # test output & cache
 Testing/

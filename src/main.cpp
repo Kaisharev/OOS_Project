@@ -1,6 +1,8 @@
 #include <iostream>
 #include <stdexcept>
 
+#include "agent/Agent.hpp"
+#include "agent/Parser/AgentParser.hpp"
 #include "core/Config.hpp"
 
 int main () {
@@ -18,9 +20,17 @@ int main () {
             std::cout << "Mount Source: " << mount.source << ", Target: " << mount.target
                       << ", Mode: " << (mount.mode == MountPoint::Mode::RO ? "RO" : "RW") << std::endl;
         }
+        Agent agent = AgentParser::Parse (std::string (config.agents[0].script_path));
+
+        for (const auto& op : agent.ops) {
+            std::cout << "Operation Type: " << static_cast<int> (op.getType ()) << ", Path: " << op.getPath ()
+                      << ", Data: " << op.getData () << ", Mode: " << op.getMode () << ", Handle: " << op.getHandle () << std::endl;
+        }
+
     } catch (const std::exception& e) {
         std::cerr << "Error loading config: " << e.what () << std::endl;
         return 1;
     }
+
     return 0;
 }
