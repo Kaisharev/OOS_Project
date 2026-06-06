@@ -17,6 +17,8 @@ file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS
 )
 
 add_library(project_core STATIC ${PROJECT_SOURCES})
+add_executable(os_app src/main.cpp)
+target_link_libraries(os_app PRIVATE project_core)
 
 target_include_directories(project_core
     PUBLIC

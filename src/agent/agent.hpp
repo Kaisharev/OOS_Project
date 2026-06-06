@@ -1,19 +1,32 @@
-#include <chrono>
+#include <Vector>
 #include <string>
-#include <vector>
+#include <unordered_map>
 
-enum class AgentState { READY, RUNNING, BLOCKED, DONE };
+#include "/Operations/Operations.hpp"
 
-class Agent {
-    private:
-        std::vector<std::string> operations;
-        const auto start{std::chrono::steady_clock::now ()};
+struct Agent {
+        std::string id;
         int priority;
+        int arrival_time;
+        std::vector<Operations> ops;
+        int op_index = 0;
         AgentState state = AgentState::READY;
 
-        int start_time = -1, end_time = -1;
-        int wait_time = 0, blocked_time = 0;
+        int start_time = -1;
+        int end_time = -1;
+        int wait_time = 0;
+        int blocked_time = 0;
         int preemptions = 0;
 
         std::unordered_map<std::string, FileHandle> handles;
+
+        bool has_next_op () const {
+            return op_index < (int)ops.size ();
+        }
+        Operations& current_op () {
+            return ops[op_index];
+        }
+        void advance_op () {
+            op_index++;
+        }
 };
