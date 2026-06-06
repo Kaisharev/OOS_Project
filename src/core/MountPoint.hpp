@@ -1,3 +1,4 @@
+#pragma once
 struct MountPoint {
         std::string source;
         std::string target;

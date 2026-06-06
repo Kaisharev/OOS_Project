@@ -1,8 +1,9 @@
+#pragma once
+
 enum class VFSNodeType { FILE, DIRECTORY };
 #include <string>
 #include <vector>
 
-#pragma once
 struct VFSNode {
         std::string name;
         VFSNodeType type;

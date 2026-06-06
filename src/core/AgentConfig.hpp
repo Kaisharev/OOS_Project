@@ -1,3 +1,4 @@
+#pragma once
 struct AgentConfig {
         std::string id;
         int priority;

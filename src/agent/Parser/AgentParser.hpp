@@ -1,9 +1,12 @@
+#pragma once
+
 #include <fstream>
 #include <string>
 #include <vector>
-#pragma once
+
 #include "../Agent.hpp"
 #include "../Operations/Operations.hpp"
+
 
 class AgentParser {
         /*

@@ -1,10 +1,13 @@
+#pragma once
+
 #include <Vector>
 #include <string>
 #include <unordered_map>
-#pragma once
+
 #include "../core/AgentState.hpp"
 #include "../core/FileHandle.hpp"
 #include "Operations/Operations.hpp"
+
 
 struct Agent {
         std::string id;
