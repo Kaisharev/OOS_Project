@@ -23,8 +23,9 @@ int main () {
         Agent agent = AgentParser::Parse (std::string (config.agents[0].script_path));
 
         for (const auto& op : agent.ops) {
-            std::cout << "Operation Type: " << static_cast<int> (op.getType ()) << ", Path: " << op.getPath ()
-                      << ", Data: " << op.getData () << ", Mode: " << op.getMode () << ", Handle: " << op.getHandle () << std::endl;
+            std::cout << "Operation Type: " << static_cast<int> (op.getType ()) << ",Duration:" << op.getThinkingDuration ()
+                      << ", Path: " << op.getPath () << ", Data: " << op.getData () << ", Mode: " << op.getMode ()
+                      << ", Handle: " << op.getHandle () << std::endl;
         }
 
     } catch (const std::exception& e) {

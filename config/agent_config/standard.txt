@@ -2,6 +2,6 @@ THINK 1
 OPEN /work/a.txt write as fa
 THINK 1
 OPEN /work/b.txt write as fb
-APPEND fb "A1bioovdje\n"
+APPEND fb "A1 bio ovdje\n"
 CLOSE fb
 CLOSE fa

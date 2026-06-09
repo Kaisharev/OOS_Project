@@ -21,18 +21,34 @@
 
 std::vector<std::string_view> AgentParser::tokenize (std::string_view line) {
     std::vector<std::string_view> parts;
+
     while (!line.empty ()) {
         const auto start = line.find_first_not_of (" \t");
         if (start == std::string_view::npos) break;
         line.remove_prefix (start);
 
-        const auto end = line.find_first_of (" \t");
-        parts.push_back (line.substr (0, end));
-        if (end == std::string_view::npos) break;
-        line.remove_prefix (end);
+        if (line.front () == '"') {
+            line.remove_prefix (1);
+
+            const auto closing_quote = line.find ('"');
+            if (closing_quote == std::string_view::npos) {
+                parts.push_back (line);
+                break;
+            } else {
+                parts.push_back (line.substr (0, closing_quote));
+                line.remove_prefix (closing_quote + 1);
+            }
+        } else {
+            const auto end = line.find_first_of (" \t");
+            parts.push_back (line.substr (0, end));
+
+            if (end == std::string_view::npos) break;
+            line.remove_prefix (end);
+        }
     }
     return parts;
 }
+
 Agent AgentParser::Parse (const std::string& script_path) {
     Agent agent;
 

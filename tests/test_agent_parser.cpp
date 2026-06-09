@@ -26,7 +26,7 @@ TEST (OperationTest, ConstructorAndGetters) {
 TEST (OperationTest, DefaultConstructor) {
     Operation default_op;
     EXPECT_EQ (default_op.getType (), OperationType::THINK);
-    EXPECT_EQ (default_op.getThinkingDuration (), 0);
+    EXPECT_EQ (default_op.getThinkingDuration (), -1);
     EXPECT_EQ (default_op.getPath (), "");
     EXPECT_EQ (default_op.getHandle (), "");
 }
