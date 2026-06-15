@@ -4,8 +4,16 @@
     },
     "vfs": {
         "mounts": [
-            { "source": "examples/01_no_conflict/input/shared", "target": "/shared", "mode": "ro" },
-            { "source": "examples/01_no_conflict/input/work", "target": "/work", "mode": "rw" }
+            {
+                "source": "config/examples/01_no_conflict/input/shared",
+                "target": "/shared",
+                "mode": "rw"
+            },
+            {
+                "source": "config/examples/01_no_conflict/input/work",
+                "target": "/work",
+                "mode": "rw"
+            }
         ]
     },
     "agents": [

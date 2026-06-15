@@ -100,8 +100,6 @@ Agent AgentParser::Parse (const std::string& script_path) {
         } else {
             throw std::runtime_error ("Nepoznata operacija: " + std::string (tokens[0]));
         }
-        // Parse the line and create an Operation object
-        // Add the Operation object to the agent's operations vector
     }
     return agent;
 }

@@ -5,8 +5,7 @@
 #include <vector>
 
 #include "../Agent.hpp"
-#include "../Operations/Operations.hpp"
-
+#include "../Operations.hpp"
 
 class AgentParser {
         /*

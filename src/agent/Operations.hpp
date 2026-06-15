@@ -41,11 +41,4 @@ class Operation {
         const std::string& getHandle () const {
             return handle;
         }
-
-        OperationType& operator->() {
-            return type;
-        }
-        const OperationType& operator->() const {
-            return type;
-        }
 };

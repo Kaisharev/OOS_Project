@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "../src/agent/Operations/Operations.hpp"
+#include "../src/agent/Operations.hpp"
 
 TEST (OperationTest, ConstructorAndGetters) {
     Operation think_op (OperationType::THINK, 3, "", "", "", "");

@@ -6,8 +6,7 @@
 
 #include "../core/AgentState.hpp"
 #include "../core/FileHandle.hpp"
-#include "Operations/Operations.hpp"
-
+#include "Operations.hpp"
 
 struct Agent {
         std::string id;
