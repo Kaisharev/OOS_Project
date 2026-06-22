@@ -22,7 +22,7 @@ Config Config::load_from_file (const std::string& path) {
 
         if (mode == "ro") {
             mp.mode = MountPoint::Mode::RO;
-        } else if (mode == "rw") {
+        } else if (mode == "readwrite" || mode == "rw") {
             mp.mode = MountPoint::Mode::RW;
         } else {
             throw std::runtime_error ("Nepoznat mode: " + mount["mode"].get<std::string> ());

@@ -120,7 +120,7 @@ TEST_F (InMemoryVfsTest, OpenIReadFajlaIzRoMounta) {
     MountPoint mp{(test_dir / "shared").string (), "/shared", MountPoint::Mode::RO};
     vfs.mount (mp);
 
-    EXPECT_EQ (vfs.open ("A1", "/shared/info.txt", "r", "f"), VFSResult::OK);
+    EXPECT_EQ (vfs.open ("A1", "/shared/info.txt", "read", "f"), VFSResult::OK);
 
     std::string content;
 
@@ -135,7 +135,7 @@ TEST_F (InMemoryVfsTest, OpenZaWriteURoMountuVracaPermissionDenied) {
     MountPoint mp{(test_dir / "shared").string (), "/shared", MountPoint::Mode::RO};
     vfs.mount (mp);
 
-    EXPECT_EQ (vfs.open ("A1", "/shared/info.txt", "w", "f"), VFSResult::PERMISSION_DENIED);
+    EXPECT_EQ (vfs.open ("A1", "/shared/info.txt", "write", "f"), VFSResult::PERMISSION_DENIED);
 }
 
 TEST_F (InMemoryVfsTest, OpenNepostojeceputanjeVracaNotFound) {
@@ -143,7 +143,7 @@ TEST_F (InMemoryVfsTest, OpenNepostojeceputanjeVracaNotFound) {
     MountPoint mp{(test_dir / "shared").string (), "/shared", MountPoint::Mode::RO};
     vfs.mount (mp);
 
-    EXPECT_EQ (vfs.open ("A1", "/shared/ne_postoji.txt", "r", "f"), VFSResult::NOT_FOUND);
+    EXPECT_EQ (vfs.open ("A1", "/shared/ne_postoji.txt", "read", "f"), VFSResult::NOT_FOUND);
 }
 
 TEST_F (InMemoryVfsTest, WritePaReadURwMountuVracaUpisaniSadrzaj) {
@@ -151,11 +151,11 @@ TEST_F (InMemoryVfsTest, WritePaReadURwMountuVracaUpisaniSadrzaj) {
     MountPoint mp{(test_dir / "work").string (), "/work", MountPoint::Mode::RW};
     vfs.mount (mp);
 
-    EXPECT_EQ (vfs.open ("A1", "/work/result.txt", "w", "f"), VFSResult::OK);
+    EXPECT_EQ (vfs.open ("A1", "/work/result.txt", "write", "f"), VFSResult::OK);
     EXPECT_EQ (vfs.write ("A1", "f", "hello"), VFSResult::OK);
     EXPECT_EQ (vfs.close ("A1", "f"), VFSResult::OK);
 
-    EXPECT_EQ (vfs.open ("A1", "/work/result.txt", "r", "f"), VFSResult::OK);
+    EXPECT_EQ (vfs.open ("A1", "/work/result.txt", "read", "f"), VFSResult::OK);
     std::string content;
     EXPECT_EQ (vfs.read ("A1", "f", content), VFSResult::OK);
     EXPECT_EQ (content, "hello");
@@ -166,15 +166,15 @@ TEST_F (InMemoryVfsTest, AppendDodajeNaKrajPostojecegSadrzaja) {
     MountPoint mp{(test_dir / "work").string (), "/work", MountPoint::Mode::RW};
     vfs.mount (mp);
 
-    vfs.open ("A1", "/work/result.txt", "w", "f1");
+    vfs.open ("A1", "/work/result.txt", "write", "f1");
     vfs.write ("A1", "f1", "agent A\n");
     vfs.close ("A1", "f1");
 
-    vfs.open ("A2", "/work/result.txt", "rw", "f2");
+    vfs.open ("A2", "/work/result.txt", "write", "f2");
     vfs.append ("A2", "f2", "agent B\n");
     vfs.close ("A2", "f2");
 
-    vfs.open ("A1", "/work/result.txt", "r", "f3");
+    vfs.open ("A1", "/work/result.txt", "read", "f3");
     std::string content;
     vfs.read ("A1", "f3", content);
     EXPECT_EQ (content, "agent A\nagent B\n");
@@ -186,8 +186,8 @@ TEST_F (InMemoryVfsTest, DrugiPisacNeMozeOtvoritiDokPrviDrziLock) {
     MountPoint mp{(test_dir / "work").string (), "/work", MountPoint::Mode::RW};
     vfs.mount (mp);
 
-    EXPECT_EQ (vfs.open ("A1", "/work/result.txt", "w", "f"), VFSResult::OK);
-    EXPECT_EQ (vfs.open ("A2", "/work/result.txt", "w", "f"), VFSResult::WOULD_BLOCK);
+    EXPECT_EQ (vfs.open ("A1", "/work/result.txt", "write", "f"), VFSResult::OK);
+    EXPECT_EQ (vfs.open ("A2", "/work/result.txt", "write", "f"), VFSResult::WOULD_BLOCK);
     vfs.close ("A1", "f");
 }
 
@@ -196,8 +196,8 @@ TEST_F (InMemoryVfsTest, ViseCitalacaMozeOtvoritiIstiFajl) {
     MountPoint mp{(test_dir / "shared").string (), "/shared", MountPoint::Mode::RO};
     vfs.mount (mp);
 
-    EXPECT_EQ (vfs.open ("A1", "/shared/info.txt", "r", "f"), VFSResult::OK);
-    EXPECT_EQ (vfs.open ("A2", "/shared/info.txt", "r", "f"), VFSResult::OK);
+    EXPECT_EQ (vfs.open ("A1", "/shared/info.txt", "read", "f"), VFSResult::OK);
+    EXPECT_EQ (vfs.open ("A2", "/shared/info.txt", "read", "f"), VFSResult::OK);
     vfs.close ("A1", "f");
     vfs.close ("A2", "f");
 }
@@ -207,10 +207,10 @@ TEST_F (InMemoryVfsTest, CloseOslobadjaLockZaSledeceg) {
     MountPoint mp{(test_dir / "work").string (), "/work", MountPoint::Mode::RW};
     vfs.mount (mp);
 
-    vfs.open ("A1", "/work/result.txt", "w", "f");
+    vfs.open ("A1", "/work/result.txt", "write", "f");
     vfs.close ("A1", "f");
 
-    EXPECT_EQ (vfs.open ("A2", "/work/result.txt", "w", "f"), VFSResult::OK);
+    EXPECT_EQ (vfs.open ("A2", "/work/result.txt", "write", "f"), VFSResult::OK);
 }
 
 TEST_F (InMemoryVfsTest, ReadNaNeotvorenomHandleVracaInvalidHandle) {
@@ -227,7 +227,7 @@ TEST_F (InMemoryVfsTest, WriteNaHandleOtvorenomZaReadVracaInvalidMode) {
     MountPoint mp{(test_dir / "shared").string (), "/shared", MountPoint::Mode::RO};
     vfs.mount (mp);
 
-    vfs.open ("A1", "/shared/info.txt", "r", "f");
+    vfs.open ("A1", "/shared/info.txt", "read", "f");
     EXPECT_EQ (vfs.write ("A1", "f", "novi sadržaj"), VFSResult::PERMISSION_DENIED);
     vfs.close ("A1", "f");
 }

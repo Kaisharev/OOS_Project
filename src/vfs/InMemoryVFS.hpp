@@ -26,6 +26,7 @@ class InMemoryVFS : public IVFS {
         VFSResult close (const std::string& agent_id, const std::string& handle);
         std::string read_content (const std::filesystem::path& file_path);
         void dump (std::ostream& out) const;
+        std::string get_lock_holder (const std::string& path) const;
 
     private:
         std::unordered_map<std::string, VFSNode> nodes;

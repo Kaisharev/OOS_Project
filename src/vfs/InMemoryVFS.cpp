@@ -80,7 +80,7 @@ VFSResult InMemoryVFS::open (const std::string& agent_id, const std::string& pat
         std::cerr << "Fajl nije pronađen: " << path << std::endl;
         return VFSResult::NOT_FOUND;
     }
-    if (mode != "r" && mode != "w" && mode != "rw") {
+    if (mode != "read" && mode != "write") {
         std::cerr << "Neispravan mode: " << mode << std::endl;
         return VFSResult::INVALID_MODE;
     }
@@ -88,7 +88,7 @@ VFSResult InMemoryVFS::open (const std::string& agent_id, const std::string& pat
         std::cerr << "Ne mogu otvoriti direktorij kao fajl: " << path << std::endl;
         return VFSResult::NOT_FOUND;
     }
-    if (node->is_read_only && (mode == "w" || mode == "rw")) {
+    if (node->is_read_only && mode == "write") {
         std::cerr << "Pristup nije dozvoljen: " << path << std::endl;
         return VFSResult::PERMISSION_DENIED;
     }
@@ -98,7 +98,7 @@ VFSResult InMemoryVFS::open (const std::string& agent_id, const std::string& pat
     }
     bool locked = false;
 
-    if (mode == "r") {
+    if (mode == "read") {
         locked = locks[path].try_lock_read (agent_id);
     } else {
         locked = locks[path].try_lock_write (agent_id);
@@ -116,7 +116,7 @@ VFSResult InMemoryVFS::read (const std::string& agent_id, const std::string& han
         return VFSResult::INVALID_HANDLE;
     }
 
-    if (file_handle->mode == "w") {
+    if (file_handle->mode == "write") {
         std::cerr << "Nije dozvoljeno čitanje iz fajla otvorenog u write modu: " << file_handle->vfs_path << std::endl;
         return VFSResult::PERMISSION_DENIED;
     }
@@ -136,7 +136,7 @@ VFSResult InMemoryVFS::write (const std::string& agent_id, const std::string& ha
         return VFSResult::INVALID_HANDLE;
     }
 
-    if (file_handle->mode == "r") {
+    if (file_handle->mode == "read") {
         std::cerr << "Nije dozvoljeno pisanje u fajl otvoren za čitanje: " << file_handle->vfs_path << std::endl;
         return VFSResult::PERMISSION_DENIED;
     }
@@ -156,7 +156,7 @@ VFSResult InMemoryVFS::append (const std::string& agent_id, const std::string& h
         return VFSResult::INVALID_HANDLE;
     }
 
-    if (file_handle->mode == "r") {
+    if (file_handle->mode == "read") {
         std::cerr << "Nije dozvoljeno dodavanje u fajl otvoren za čitanje: " << file_handle->vfs_path << std::endl;
         return VFSResult::PERMISSION_DENIED;
     }
@@ -176,7 +176,7 @@ VFSResult InMemoryVFS::close (const std::string& agent_id, const std::string& ha
         return VFSResult::INVALID_HANDLE;
     }
 
-    if (file_handle->mode == "r") {
+    if (file_handle->mode == "read") {
         if (!locks[file_handle->vfs_path].unlock_read (agent_id)) {
             std::cerr << "Nije dozvoljen pristup fajlu: " << file_handle->vfs_path << std::endl;
             return VFSResult::PERMISSION_DENIED;
@@ -198,7 +198,14 @@ VFSResult InMemoryVFS::close (const std::string& agent_id, const std::string& ha
 
 void InMemoryVFS::dump (std::ostream& out) const {
     for (const auto& [path, node] : nodes) {
-        out << path << " (" << (node.type == VFSNodeType::FILE ? "FILE" : "DIRECTORY") << ") "
-            << "[" << (node.is_read_only ? "RO" : "RW") << "]\n";
+        if (node.type == VFSNodeType::FILE) {
+            out << "Sadržaj fajla " << path << ": " << node.file_content << std::endl;
+        }
     }
+}
+
+std::string InMemoryVFS::get_lock_holder (const std::string& path) const {
+    auto it = locks.find (path);
+    if (it == locks.end ()) return "";
+    return it->second.get_holder ();
 }

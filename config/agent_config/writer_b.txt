@@ -1,0 +1,4 @@
+THINK 1
+OPEN /work/b.txt write as fb
+APPEND fb "A2 je upisao drugi red\n"
+CLOSE fb

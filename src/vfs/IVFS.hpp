@@ -23,4 +23,7 @@ class IVFS {
         virtual VFSResult close (const std::string& agent_id, const std::string& handle) = 0;
 
         virtual void dump (std::ostream& out) const = 0;
+
+        // Return id of agent holding lock for given VFS path, or empty if none
+        virtual std::string get_lock_holder (const std::string& path) const = 0;
 };

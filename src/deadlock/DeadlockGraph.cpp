@@ -19,10 +19,39 @@ bool DeadlockGraph::dfs (const std::string& current, const std::string& target, 
     return false;
 }
 bool DeadlockGraph::would_create_cycle (const std::string& waiter, const std::string& holder) const {
+    if (waiter == holder) return false;
     std::set<std::string> visited;
     return dfs (holder, waiter, visited);
 }
 
 void DeadlockGraph::remove_edges_for (const std::string& agent) {
     waits_for.erase (agent);
+}
+std::string DeadlockGraph::get_cycle_path (const std::string& waiter, const std::string& holder) const {
+    std::vector<std::string> path;
+    std::set<std::string> visited;
+
+    path.push_back (waiter);
+    std::string current = holder;
+
+    while (true) {
+        path.push_back (current);
+
+        if (current == waiter) break;
+
+        if (visited.count (current)) break;
+        visited.insert (current);
+
+        auto it = waits_for.find (current);
+        if (it == waits_for.end ()) break;
+
+        current = it->second;
+    }
+
+    std::string result;
+    for (size_t i = 0; i < path.size (); i++) {
+        result += path[i];
+        if (i < path.size () - 1) result += " -> ";
+    }
+    return result;
 }
