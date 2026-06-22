@@ -47,7 +47,7 @@ int main () {
         vfs.read ("A1", "f", content);
         std::cout << "Content of file 'f' after write: " << content << std::endl;
 
-        vfs.open ("A1", "/work/result.txt", "rw", "f2");
+        vfs.open ("A1", "/work/selam.txt", "rw", "f2");
         vfs.append ("A1", "f2", "hello");
         vfs.read ("A1", "f2", content);
         std::cout << "Content of file 'f2' after append: " << content << std::endl;

@@ -72,6 +72,7 @@ VFSResult InMemoryVFS::open (const std::string& agent_id, const std::string& pat
         return VFSResult::INVALID_HANDLE;
     }
     bool locked = false;
+
     if (mode == "r") {
         locked = locks[path].try_lock_read (agent_id);
     } else {
