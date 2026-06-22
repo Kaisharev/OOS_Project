@@ -1,3 +1,5 @@
+#pragma once
+
 #include <fstream>
 #include <string>
 #include <vector>
@@ -6,7 +8,6 @@
 #include "AgentConfig.hpp"
 #include "MountPoint.hpp"
 #include "SimSettings.hpp"
-#pragma once
 
 class Config {
     public:

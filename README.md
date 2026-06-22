@@ -1,4 +1,4 @@
-# Projekat iz Osnova softverskog inženjerstva
+# Projekat iz Osnova Operativnih Sistema
 
 Ovo je repozitorijum namijenjen za izvorni kod studentskog projekta iz predmeta **Osnovi Operativnih Sistema** na Elektrotehničkom fakultetu Univerziteta u Banjoj Luci.
 

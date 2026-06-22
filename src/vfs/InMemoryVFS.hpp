@@ -7,10 +7,9 @@
 #include <unordered_map>
 
 #include "../core/FileHandle.hpp"
-#include "IVFS.h"
+#include "IVFS.hpp"
 #include "RWLock.hpp"
 #include "VFSNode.hpp"
-
 
 class InMemoryVFS : public IVFS {
     public:

@@ -49,12 +49,12 @@ std::vector<std::string_view> AgentParser::tokenize (std::string_view line) {
     return parts;
 }
 
-Agent AgentParser::Parse (const std::string& script_path) {
-    Agent agent;
+Agent AgentParser::Parse (const AgentConfig& config) {
+    Agent agent (config.id, config.priority, config.arrival_time);
 
-    std::ifstream script_file (script_path);
+    std::ifstream script_file (config.script_path);
     if (!script_file.is_open ()) {
-        throw std::runtime_error ("Could not open script file: " + script_path);
+        throw std::runtime_error ("Could not open script file: " + config.script_path);
     }
     std::string line;
     while (std::getline (script_file, line)) {
@@ -79,7 +79,7 @@ Agent AgentParser::Parse (const std::string& script_path) {
                                     std::string (tokens[4]));
         } else if (tokens[0] == "READ") {
             if (tokens.size () != 2) {
-                throw std::runtime_error ("Operacije REaD zahtjeva 1 argument, a uneseni su " + std::to_string (tokens.size ()));
+                throw std::runtime_error ("Operacije READ zahtjeva 1 argument, a uneseni su " + std::to_string (tokens.size ()));
             }
             agent.ops.emplace_back (OperationType::READ, 0, "", "", "", std::string (tokens[1]));
         } else if (tokens[0] == "WRITE") {

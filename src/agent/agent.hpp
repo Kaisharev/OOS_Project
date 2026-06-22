@@ -8,11 +8,11 @@
 #include "../core/FileHandle.hpp"
 #include "Operations.hpp"
 
-struct Agent {
+class Agent {
+    private:
         std::string id;
         int priority;
         int arrival_time;
-        std::vector<Operation> ops;
         int op_index = 0;
         AgentState state = AgentState::READY;
 
@@ -22,8 +22,11 @@ struct Agent {
         int blocked_time = 0;
         int preemptions = 0;
 
+    public:
         std::unordered_map<std::string, FileHandle> handles;
-
+        std::vector<Operation> ops;
+        Agent (const std::string& id = "", int priority = 0, int arrival_time = 0)
+            : id (id), priority (priority), arrival_time (arrival_time) {}
         bool has_next_op () const {
             return op_index < (int)ops.size ();
         }

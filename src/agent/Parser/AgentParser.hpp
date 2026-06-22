@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "../../core/AgentConfig.hpp"
 #include "../Agent.hpp"
 #include "../Operations.hpp"
 
@@ -35,5 +36,5 @@ class AgentParser {
         static std::vector<std::string_view> tokenize (std::string_view line);
 
     public:
-        static Agent Parse (const std::string& script_path);
+        static Agent Parse (const AgentConfig& config);
 };

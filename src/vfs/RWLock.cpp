@@ -31,13 +31,6 @@ bool RWLock::unlock_write (const std::string& agent_id) {
     return false;
 }
 
-bool RWLock::unlock_write (const std::string& agent_id) {
-    if (writer == agent_id) {
-        writer.clear ();
-        return true;
-    }
-    return false;
-}
 std::string RWLock::get_holder () const {
     if (!writer.empty ()) {
         return writer;
