@@ -29,7 +29,9 @@ class InMemoryVFS : public IVFS {
 
     private:
         std::unordered_map<std::string, VFSNode> nodes;
-        std::optional<VFSNode> resolve_path (const std::string& file_path);
+        VFSNode* resolve_path (const std::string& file_path);
+        VFSNode* resolve_file_node (const std::string& file_path);
+        FileHandle* resolve_handle (const std::string& agent_id, const std::string& handle);
         std::unordered_map<std::string, std::unordered_map<std::string, FileHandle>> agent_handles;
         std::unordered_map<std::string, RWLock> locks;
 };

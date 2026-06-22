@@ -19,7 +19,7 @@ int main () {
             std::cout << "Mount Source: " << mount.source << ", Target: " << mount.target
                       << ", Mode: " << (mount.mode == MountPoint::Mode::RO ? "RO" : "RW") << std::endl;
         }
-        Agent agent = AgentParser::Parse (std::string (config.agents[0].script_path));
+        Agent agent = AgentParser::Parse (config.agents[0]);
 
         for (const auto& op : agent.ops) {
             std::cout << "Operation Type: " << static_cast<int> (op.getType ()) << ",Duration:" << op.getThinkingDuration ()
