@@ -1,14 +1,28 @@
 {
-  "settings": {
-    "max_running_agents": 2
-  },
-  "vfs": {
-    "mounts": [
-      { "source": "examples/03_deadlock/input/work", "target": "/work", "mode": "rw" }
+    "settings": {
+        "max_running_agents": 2
+    },
+    "vfs": {
+        "mounts": [
+            {
+                "source": "config/examples/03_deadlock/input/work",
+                "target": "/work",
+                "mode": "rw"
+            }
+        ]
+    },
+    "agents": [
+        {
+            "id": "A1",
+            "priority": 1,
+            "arrival_time": 0,
+            "script": "config/examples/03_deadlock/agents/a1.txt"
+        },
+        {
+            "id": "A2",
+            "priority": 2,
+            "arrival_time": 0,
+            "script": "config/examples/03_deadlock/agents/a2.txt"
+        }
     ]
-  },
-  "agents": [
-    { "id": "A1", "priority": 1, "arrival_time": 0, "script": "examples/03_deadlock/agents/a1.txt" },
-    { "id": "A2", "priority": 2, "arrival_time": 0, "script": "examples/03_deadlock/agents/a2.txt" }
-  ]
 }

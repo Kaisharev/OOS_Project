@@ -1,0 +1,3 @@
+OPEN /work/log.txt append as f
+APPEND f "HighPrio zavrsio\n"
+CLOSE f

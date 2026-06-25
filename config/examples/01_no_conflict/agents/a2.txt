@@ -1,0 +1,7 @@
+THINK 1
+OPEN /shared/info.txt read as info
+READ info
+CLOSE info
+OPEN /work/b.txt append as fb
+APPEND fb "Agent A2 je zavrsio zadatak\n"
+CLOSE fb

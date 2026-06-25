@@ -1,0 +1,2 @@
+Ovo je zajednicki read-only fajl.
+Svi agenti mogu citati ovaj fajl istovremeno.

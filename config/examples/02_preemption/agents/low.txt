@@ -1,0 +1,5 @@
+THINK 2
+OPEN /work/log.txt append as f
+THINK 3
+APPEND f "LowPrio zavrsio\n"
+CLOSE f

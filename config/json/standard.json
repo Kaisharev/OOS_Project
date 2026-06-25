@@ -7,7 +7,7 @@
             {
                 "source": "config/examples/01_no_conflict/input/shared",
                 "target": "/shared",
-                "mode": "rw"
+                "mode": "ro"
             },
             {
                 "source": "config/examples/01_no_conflict/input/work",
@@ -21,19 +21,19 @@
             "id": "A1",
             "priority": 1,
             "arrival_time": 0,
-            "script": "config/agent_config/writer_a.txt"
+            "script": "config/examples/01_no_conflict/agents/a1.txt"
         },
         {
             "id": "A2",
             "priority": 2,
             "arrival_time": 0,
-            "script": "config/agent_config/writer_b.txt"
+            "script": "config/examples/01_no_conflict/agents/a2.txt"
         },
         {
             "id": "A3",
             "priority": 3,
             "arrival_time": 0,
-            "script": "config/agent_config/standard.txt"
+            "script": "config/examples/01_no_conflict/agents/a3.txt"
         }
     ]
 }

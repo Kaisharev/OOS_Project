@@ -1,14 +1,28 @@
 {
-  "settings": {
-    "max_running_agents": 1
-  },
-  "vfs": {
-    "mounts": [
-      { "source": "examples/02_preemption/input/work", "target": "/work", "mode": "rw" }
+    "settings": {
+        "max_running_agents": 1
+    },
+    "vfs": {
+        "mounts": [
+            {
+                "source": "config/examples/02_preemption/input/work",
+                "target": "/work",
+                "mode": "rw"
+            }
+        ]
+    },
+    "agents": [
+        {
+            "id": "LowPrio",
+            "priority": 5,
+            "arrival_time": 0,
+            "script": "config/examples/02_preemption/agents/low.txt"
+        },
+        {
+            "id": "HighPrio",
+            "priority": 1,
+            "arrival_time": 3,
+            "script": "config/examples/02_preemption/agents/high.txt"
+        }
     ]
-  },
-  "agents": [
-    { "id": "LowPrio",  "priority": 5, "arrival_time": 0, "script": "examples/02_preemption/agents/low.txt" },
-    { "id": "HighPrio", "priority": 1, "arrival_time": 3, "script": "examples/02_preemption/agents/high.txt" }
-  ]
 }
