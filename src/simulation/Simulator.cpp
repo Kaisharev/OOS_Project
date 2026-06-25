@@ -14,6 +14,31 @@ void Simulator::run () {
         step ();
         update_wait_times ();
         update_gantt ();
+
+        // Stall detekcija: svi running agenti su na retry_cooldown
+        // i nema blokiranih koji čekaju oslobađanje — nema daljeg napretka
+        auto running = scheduler->get_running ();
+        if (!running.empty ()) {
+            bool all_stalled = true;
+            for (const auto& a : running) {
+                if (!a->getRetryCooldown ()) { all_stalled = false; break; }
+            }
+            if (all_stalled) {
+                // Označi sve running kao DONE da simulation može završiti
+                for (auto& a : running) {
+                    a->setState (AgentState::DONE);
+                    a->setEndTime (current_tick);
+                    event_log.log (current_tick,
+                        "Agent " + a->getId () + " završen (nije mogao dobiti zaključavanje)");
+                }
+            }
+        }
+
+        // Resetuj retry_cooldown za sljedeći tik
+        for (auto& a : all_agents) {
+            a->setRetryCooldown (false);
+        }
+
         current_tick++;
     }
     event_log.print (std::cout);
@@ -61,6 +86,9 @@ void Simulator::step () {
         if (agent->getStartTime () == -1) {
             agent->setStartTime (current_tick);
         }
+
+        // Ako je odbijen u prethodnom tiku, preskočimo ovaj tik (retry sljedeći)
+        if (agent->getRetryCooldown ()) continue;
 
         execute_operation (agent);
     }
@@ -133,8 +161,8 @@ void Simulator::handle_open (std::shared_ptr<Agent> agent, const Operation& op) 
     VFSResult res = vfs->open (agent->getId (), op.getPath (), op.getMode (), op.getHandle ());
 
     if (res == VFSResult::OK) {
-        event_log.log (current_tick, agent->getId () + " OPEN " + op.getPath () + " " + op.getMode () + " as "
-                                         + op.getHandle () + " -> zaključano");
+        event_log.log (current_tick, agent->getId () + " OPEN " + op.getPath () + " " + op.getMode ()
+                                         + " as " + op.getHandle () + " -> zaključano");
         agent->advance_op ();
         return;
     }
@@ -142,18 +170,26 @@ void Simulator::handle_open (std::shared_ptr<Agent> agent, const Operation& op) 
     if (res == VFSResult::WOULD_BLOCK) {
         std::string holder = vfs->get_lock_holder (op.getPath ());
 
-        if (deadlock_graph.would_create_cycle (agent->getId (), holder)) {
+        if (!holder.empty () && deadlock_graph.would_create_cycle (agent->getId (), holder)) {
+            // Odbij — spriječi deadlock, agent čeka jedan tik pa proba opet
             std::string cycle = deadlock_graph.get_cycle_path (agent->getId (), holder);
             event_log.log (current_tick,
-                           agent->getId () + " OPEN " + op.getPath () + " -> odbijeno, nastao bi ciklus " + cycle);
-            rejected_locks.push_back ("[" + std::to_string (current_tick) + "] " + agent->getId ()
-                                      + " nije dobio zaključavanje nad " + op.getPath ()
-                                      + " zbog ciklusa " + cycle);
+                           agent->getId () + " OPEN " + op.getPath ()
+                               + " -> odbijeno, nastao bi ciklus " + cycle);
+            rejected_locks.push_back ("[" + std::to_string (current_tick) + "] "
+                                      + agent->getId () + " nije dobio zaključavanje nad "
+                                      + op.getPath () + " zbog ciklusa " + cycle);
+            // Postavi cooldown — ovaj agent neće probati isti OPEN ovaj tik
+            agent->setRetryCooldown (true);
         } else {
-            deadlock_graph.add_edge (agent->getId (), holder);
+            // Nema ciklusa — blokiraj agenta dok holder ne uradi CLOSE
+            if (!holder.empty ()) {
+                deadlock_graph.add_edge (agent->getId (), holder);
+            }
             agent->setState (AgentState::BLOCKED);
             event_log.log (current_tick,
-                           agent->getId () + " OPEN " + op.getPath () + " -> blokiran, čeka " + holder);
+                           agent->getId () + " OPEN " + op.getPath ()
+                               + " -> blokiran, čeka " + holder);
         }
         return;
     }
@@ -227,16 +263,11 @@ void Simulator::update_gantt () {
 }
 
 void Simulator::update_wait_times () {
-    // Skupimo ID-eve agenata koji su trenutno RUNNING
     std::unordered_set<std::string> running_ids;
     for (const auto& agent : scheduler->get_running ()) {
         running_ids.insert (agent->getId ());
     }
 
-    // Agent ceka (wait_time++) ako je:
-    //  - READY (u ready_queue, ceka slobodan slot)
-    //  - stigao (arrival_time <= current_tick)
-    //  - NIJE u running slotu
     for (auto& agent : all_agents) {
         if (agent->getState () == AgentState::READY
             && agent->getArrivalTime () <= current_tick
@@ -245,7 +276,6 @@ void Simulator::update_wait_times () {
         }
     }
 
-    // blocked_time++ za svaki blokirani agent (ceka na zaključavanje)
     for (auto& agent : all_agents) {
         if (agent->getState () == AgentState::BLOCKED) {
             agent->incrementBlockedTime ();
@@ -283,10 +313,10 @@ void Simulator::print_agent_summary (std::ostream& out) const {
     for (const auto& agent : all_agents) {
         std::string status;
         switch (agent->getState ()) {
-            case AgentState::DONE:    status = "završen";    break;
-            case AgentState::BLOCKED: status = "blokiran";   break;
-            case AgentState::READY:   status = "spreman";    break;
-            case AgentState::RUNNING: status = "pokrenut";   break;
+            case AgentState::DONE:    status = "završen";     break;
+            case AgentState::BLOCKED: status = "blokiran";    break;
+            case AgentState::READY:   status = "spreman";     break;
+            case AgentState::RUNNING: status = "pokrenut";    break;
             case AgentState::STOPPED: status = "zaustavljen"; break;
         }
         out << std::left
