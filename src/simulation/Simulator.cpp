@@ -15,20 +15,22 @@ void Simulator::run () {
         update_wait_times ();
         update_gantt ();
 
-        // Stall detekcija: svi running agenti su na retry_cooldown
-        auto running = scheduler->get_running ();
-        if (!running.empty ()) {
-            bool all_stalled = true;
-            for (const auto& a : running)
-                if (!a->getRetryCooldown ()) { all_stalled = false; break; }
-            if (all_stalled) {
-                for (auto& a : running) {
-                    a->setState (AgentState::DONE);
-                    a->setEndTime (current_tick);
-                    event_log.log (current_tick,
-                        "Agent " + a->getId () + " zavrsio (nije mogao dobiti zakljucavanje)");
+        // ----------------------------------------------------------------
+        // Globalna detekcija zastoja:
+        // Ako nema running ni ready ni pending agenata, a ima blokiranih
+        // (ili svi running su na retry_cooldown) => sistem je u deadlocku.
+        // ----------------------------------------------------------------
+        if (is_global_deadlock ()) {
+            event_log.log (current_tick, "[DEADLOCK] Globalni zastoj detektovan - simulacija prekinuta");
+            for (auto& a : all_agents) {
+                if (a->getState () == AgentState::BLOCKED
+                    || a->getState () == AgentState::RUNNING
+                    || a->getState () == AgentState::READY) {
+                    a->setState (AgentState::STOPPED);
+                    if (a->getEndTime () == -1) a->setEndTime (current_tick);
                 }
             }
+            break;
         }
 
         for (auto& a : all_agents) {
@@ -43,6 +45,42 @@ void Simulator::run () {
     print_rejected_locks (std::cout);
     vfs->dump (std::cout);
     print_statistics (std::cout);
+}
+
+bool Simulator::is_global_deadlock () const {
+    // Provjeri da li ima ijedan agent koji moze napredovati:
+    // - RUNNING i nije na retry_cooldown
+    // - READY
+    // - jos uvijek u pending (nije stigao)
+    for (const auto& a : all_agents) {
+        switch (a->getState ()) {
+            case AgentState::RUNNING:
+                if (!a->getRetryCooldown ()) return false;
+                break;
+            case AgentState::READY:
+                return false;
+            case AgentState::BLOCKED:
+            case AgentState::DONE:
+            case AgentState::STOPPED:
+                break;
+        }
+    }
+    // Provjeri pending (agenti koji jos nisu stigli)
+    bool has_pending = false;
+    for (const auto& a : all_agents)
+        if (a->getState () != AgentState::DONE
+            && a->getState () != AgentState::STOPPED
+            && a->getArrivalTime () > current_tick) {
+            has_pending = true;
+            break;
+        }
+    if (has_pending) return false;
+
+    // Ima li ijedan blokiran agent? Ako da, a niko ne moze napredovati => deadlock
+    for (const auto& a : all_agents)
+        if (a->getState () == AgentState::BLOCKED) return true;
+
+    return false;
 }
 
 void Simulator::init () {
@@ -145,11 +183,9 @@ void Simulator::handle_open (std::shared_ptr<Agent> agent, const Operation& op) 
     if (res == VFSResult::WOULD_BLOCK) {
         std::string holder = vfs->get_lock_holder (op.getPath ());
 
-        // Privremeno dodaj edge pa provjeri ciklus
         if (!holder.empty ()) deadlock_graph.add_edge (agent->getId (), holder);
 
         if (!holder.empty () && deadlock_graph.would_create_cycle_after_add (agent->getId ())) {
-            // Ciklus bi nastao - ukloni edge i odbij
             deadlock_graph.remove_edges_for (agent->getId ());
             std::string cycle = deadlock_graph.get_cycle_path (agent->getId (), holder);
             event_log.log (current_tick, agent->getId () + " OPEN " + op.getPath ()
@@ -159,7 +195,6 @@ void Simulator::handle_open (std::shared_ptr<Agent> agent, const Operation& op) 
                 + op.getPath () + " zbog ciklusa " + cycle);
             agent->setRetryCooldown (true);
         } else {
-            // Nema ciklusa - ostavi edge, blokiraj agenta
             agent->setState (AgentState::BLOCKED);
             event_log.log (current_tick, agent->getId () + " OPEN " + op.getPath ()
                 + " -> blokiran, ceka " + holder);
@@ -200,7 +235,6 @@ void Simulator::try_unblock_agents () {
 }
 
 void Simulator::update_gantt () {
-    // Koristimo get_slot_agents() da svaki agent ostane u istom fizickom slotu
     auto slot_agents = scheduler->get_slot_agents ();
     for (int slot = 0; slot < (int)slot_agents.size (); slot++) {
         std::string agent_now = (slot_agents[slot] && slot_agents[slot]->getState () == AgentState::RUNNING)
