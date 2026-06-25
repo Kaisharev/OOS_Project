@@ -1,6 +1,7 @@
 #include "PriorityPreemptiveScheduler.hpp"
 
-PriorityPreemptiveScheduler::PriorityPreemptiveScheduler (int max_running_agents) : max_running_agents (max_running_agents) {
+PriorityPreemptiveScheduler::PriorityPreemptiveScheduler (int max_running_agents)
+    : max_running_agents (max_running_agents) {
     running_slots.resize (max_running_agents, nullptr);
 }
 
@@ -30,10 +31,12 @@ void PriorityPreemptiveScheduler::move_arrived_agents (int current_time) {
 
 void PriorityPreemptiveScheduler::release_done_slots () {
     for (auto& slot : running_slots) {
-        if (slot && slot->getState () != AgentState::RUNNING) {
-            if (slot->getState () == AgentState::BLOCKED) {
-                blocked[slot->getId ()] = slot;
-            }
+        if (!slot) continue;
+        const auto state = slot->getState ();
+        if (state == AgentState::DONE || state == AgentState::STOPPED) {
+            slot = nullptr;
+        } else if (state == AgentState::BLOCKED) {
+            blocked[slot->getId ()] = slot;
             slot = nullptr;
         }
     }
@@ -59,13 +62,30 @@ void PriorityPreemptiveScheduler::check_preemption () {
 }
 
 void PriorityPreemptiveScheduler::fill_slots () {
+    // Skupi ID-eve agenata koji su vec u nekom slotu
+    // da ih fill_slots ne bi duplo ubacio
+    std::unordered_set<std::string> already_in_slot;
+    for (const auto& slot : running_slots) {
+        if (slot) already_in_slot.insert (slot->getId ());
+    }
+
     for (auto& slot : running_slots) {
-        if (slot) continue;
+        if (slot) continue;                  // slot je zauzet
         if (ready_queue.empty ()) break;
 
-        slot = ready_queue.top ();
-        slot->setState (AgentState::RUNNING);
+        // Preskoči agente koji su već u drugom slotu
+        // (može se desiti nakon preemption logike u rubnim slučajevima)
+        while (!ready_queue.empty ()
+               && already_in_slot.count (ready_queue.top ()->getId ())) {
+            ready_queue.pop ();
+        }
+        if (ready_queue.empty ()) break;
+
+        auto agent = ready_queue.top ();
         ready_queue.pop ();
+        agent->setState (AgentState::RUNNING);
+        slot = agent;
+        already_in_slot.insert (agent->getId ());
     }
 }
 
@@ -82,7 +102,6 @@ std::vector<std::shared_ptr<Agent>> PriorityPreemptiveScheduler::get_running () 
 void PriorityPreemptiveScheduler::unblock_agent (const std::string& agent_id) {
     auto it = blocked.find (agent_id);
     if (it == blocked.end ()) return;
-
     it->second->setState (AgentState::READY);
     ready_queue.push (it->second);
     blocked.erase (it);
@@ -93,7 +112,13 @@ bool PriorityPreemptiveScheduler::all_done () const {
     if (!ready_queue.empty ()) return false;
     if (!blocked.empty ()) return false;
     for (const auto& slot : running_slots) {
-        if (slot) return false;
+        // Slot koji drži DONE agenta se smatra slobodnim —
+        // release_done_slots() će ga očistiti na sljedećem tick()-u,
+        // ali mi ne smijemo čekati taj extra tik.
+        if (slot && slot->getState () != AgentState::DONE
+                 && slot->getState () != AgentState::STOPPED) {
+            return false;
+        }
     }
     return true;
 }
