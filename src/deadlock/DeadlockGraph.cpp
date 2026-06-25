@@ -19,17 +19,19 @@ bool DeadlockGraph::dfs (const std::string& current, const std::string& target,
     return false;
 }
 
-// Provjeri bi li dodavanje edge waiter->holder stvorilo ciklus (edge JOS nije u grafu)
 bool DeadlockGraph::would_create_cycle (const std::string& waiter, const std::string& holder) const {
-    if (waiter == holder) return true;
+    if (waiter == holder) return false;
     std::set<std::string> visited;
     return dfs (holder, waiter, visited);
 }
 
-// Provjeri da li vec postoji ciklus koji ukljucuje 'waiter' (edge JE vec dodan)
+// Provjeri da li graf (edge vec dodan) sadrzi ciklus koji ukljucuje waiter.
+// Pratimo edge od waitera dalje - ako se vratimo na waitera, ciklus postoji.
 bool DeadlockGraph::would_create_cycle_after_add (const std::string& waiter) const {
+    auto it = waits_for.find (waiter);
+    if (it == waits_for.end ()) return false;  // nema edgea, nema ciklusa
     std::set<std::string> visited;
-    return dfs (waiter, waiter, visited);
+    return dfs (it->second, waiter, visited);
 }
 
 std::string DeadlockGraph::get_cycle_path (const std::string& waiter,
