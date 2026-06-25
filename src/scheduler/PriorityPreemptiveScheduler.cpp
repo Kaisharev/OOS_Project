@@ -54,27 +54,26 @@ void PriorityPreemptiveScheduler::check_preemption () {
             slot->setState (AgentState::READY);
             slot->incrementPreemptions ();
             ready_queue.push (slot);
-            slot = ready_queue.top ();
-            slot->setState (AgentState::RUNNING);
+            // Novi agent u slotu je 'just_preempted' -> preskocice execute ovaj tik
+            auto incoming = ready_queue.top ();
             ready_queue.pop ();
+            incoming->setState (AgentState::RUNNING);
+            incoming->setJustPreempted (true);
+            slot = incoming;
         }
     }
 }
 
 void PriorityPreemptiveScheduler::fill_slots () {
-    // Skupi ID-eve agenata koji su vec u nekom slotu
-    // da ih fill_slots ne bi duplo ubacio
     std::unordered_set<std::string> already_in_slot;
     for (const auto& slot : running_slots) {
         if (slot) already_in_slot.insert (slot->getId ());
     }
 
     for (auto& slot : running_slots) {
-        if (slot) continue;                  // slot je zauzet
+        if (slot) continue;
         if (ready_queue.empty ()) break;
 
-        // Preskoči agente koji su već u drugom slotu
-        // (može se desiti nakon preemption logike u rubnim slučajevima)
         while (!ready_queue.empty ()
                && already_in_slot.count (ready_queue.top ()->getId ())) {
             ready_queue.pop ();
@@ -84,6 +83,8 @@ void PriorityPreemptiveScheduler::fill_slots () {
         auto agent = ready_queue.top ();
         ready_queue.pop ();
         agent->setState (AgentState::RUNNING);
+        // Agenti koji ulaze u slot jer je oslobodjen (ne preemption)
+        // NE dobijaju just_preempted -> mogu odmah izvrsiti operaciju
         slot = agent;
         already_in_slot.insert (agent->getId ());
     }
@@ -112,9 +113,6 @@ bool PriorityPreemptiveScheduler::all_done () const {
     if (!ready_queue.empty ()) return false;
     if (!blocked.empty ()) return false;
     for (const auto& slot : running_slots) {
-        // Slot koji drži DONE agenta se smatra slobodnim —
-        // release_done_slots() će ga očistiti na sljedećem tick()-u,
-        // ali mi ne smijemo čekati taj extra tik.
         if (slot && slot->getState () != AgentState::DONE
                  && slot->getState () != AgentState::STOPPED) {
             return false;

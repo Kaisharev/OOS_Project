@@ -15,8 +15,7 @@ void Simulator::run () {
         update_wait_times ();
         update_gantt ();
 
-        // Stall detekcija: svi running agenti su na retry_cooldown
-        // i nema blokiranih koji cekaju oslobadjanje — nema daljeg napretka
+        // Stall detekcija: svi running agenti su na retry_cooldown -> nema napretka
         auto running = scheduler->get_running ();
         if (!running.empty ()) {
             bool all_stalled = true;
@@ -33,9 +32,10 @@ void Simulator::run () {
             }
         }
 
-        // Resetuj retry_cooldown za sljedeci tik
+        // Resetuj flagove za sljedeci tik
         for (auto& a : all_agents) {
             a->setRetryCooldown (false);
+            a->setJustPreempted (false);
         }
 
         current_tick++;
@@ -73,13 +73,6 @@ void Simulator::init () {
 }
 
 void Simulator::step () {
-    // Zapamti koji agenti su bili RUNNING PRIJE tick()-a
-    // kako bi znali koje agente treba preskociti (preuzeti su u ovom tiku)
-    std::unordered_set<std::string> was_running_before_tick;
-    for (const auto& slot_agent : scheduler->get_running ()) {
-        was_running_before_tick.insert (slot_agent->getId ());
-    }
-
     scheduler->tick (current_tick);
 
     for (auto& agent : scheduler->get_running ()) {
@@ -94,13 +87,11 @@ void Simulator::step () {
             agent->setStartTime (current_tick);
         }
 
-        // Agent koji je tek preuzeo slot u ovom tiku ne izvrsava operaciju
-        // (preemption se desio upravo ovaj tik, operacija krece sljedeceg)
-        if (was_running_before_tick.find (agent->getId ()) == was_running_before_tick.end ()) {
-            continue;
-        }
+        // Preskoci agenta koji je preuzeo slot upravo ovog tika (preemption)
+        // Agenti koji su slobodnim ulaskom dobili slot se NE preskacaju
+        if (agent->getJustPreempted ()) continue;
 
-        // Ako je odbijen u prethodnom tiku, preskocimo ovaj tik (retry sljedeci)
+        // Preskoci agenta ciji je OPEN odbijen zbog ciklusa (retry sljedeci tik)
         if (agent->getRetryCooldown ()) continue;
 
         execute_operation (agent);
@@ -125,7 +116,6 @@ void Simulator::execute_operation (std::shared_ptr<Agent> agent) {
             }
             break;
         }
-
         case OperationType::READ: {
             std::string content;
             VFSResult res = vfs->read (agent->getId (), op.getHandle (), content);
@@ -134,11 +124,11 @@ void Simulator::execute_operation (std::shared_ptr<Agent> agent) {
                                agent->getId () + " READ " + op.getHandle () + " -> \"" + content + "\"");
                 agent->advance_op ();
             } else {
-                event_log.log (current_tick, agent->getId () + " READ " + op.getHandle () + " -> greska");
+                event_log.log (current_tick, agent->getId () + " READ "
+                               + op.getHandle () + " -> greska");
             }
             break;
         }
-
         case OperationType::WRITE: {
             VFSResult res = vfs->write (agent->getId (), op.getHandle (), op.getData ());
             if (res == VFSResult::OK) {
@@ -147,26 +137,17 @@ void Simulator::execute_operation (std::shared_ptr<Agent> agent) {
             }
             break;
         }
-
         case OperationType::APPEND: {
             VFSResult res = vfs->append (agent->getId (), op.getHandle (), op.getData ());
             if (res == VFSResult::OK) {
-                event_log.log (current_tick,
-                               agent->getId () + " APPEND " + op.getHandle () + " \"" + op.getData () + "\"");
+                event_log.log (current_tick, agent->getId () + " APPEND "
+                               + op.getHandle () + " \"" + op.getData () + "\"");
                 agent->advance_op ();
             }
             break;
         }
-
-        case OperationType::OPEN: {
-            handle_open (agent, op);
-            break;
-        }
-
-        case OperationType::CLOSE: {
-            handle_close (agent, op);
-            break;
-        }
+        case OperationType::OPEN:  { handle_open  (agent, op); break; }
+        case OperationType::CLOSE: { handle_close (agent, op); break; }
     }
 }
 
@@ -174,38 +155,33 @@ void Simulator::handle_open (std::shared_ptr<Agent> agent, const Operation& op) 
     VFSResult res = vfs->open (agent->getId (), op.getPath (), op.getMode (), op.getHandle ());
 
     if (res == VFSResult::OK) {
-        event_log.log (current_tick, agent->getId () + " OPEN " + op.getPath () + " " + op.getMode ()
-                                         + " as " + op.getHandle () + " -> zakljucano");
+        event_log.log (current_tick, agent->getId () + " OPEN " + op.getPath ()
+                       + " " + op.getMode () + " as " + op.getHandle () + " -> zakljucano");
         agent->advance_op ();
         return;
     }
 
     if (res == VFSResult::WOULD_BLOCK) {
         std::string holder = vfs->get_lock_holder (op.getPath ());
-
         if (!holder.empty () && deadlock_graph.would_create_cycle (agent->getId (), holder)) {
             std::string cycle = deadlock_graph.get_cycle_path (agent->getId (), holder);
-            event_log.log (current_tick,
-                           agent->getId () + " OPEN " + op.getPath ()
-                               + " -> odbijeno, nastao bi ciklus " + cycle);
+            event_log.log (current_tick, agent->getId () + " OPEN " + op.getPath ()
+                           + " -> odbijeno, nastao bi ciklus " + cycle);
             rejected_locks.push_back ("[" + std::to_string (current_tick) + "] "
                                       + agent->getId () + " nije dobio zakljucavanje nad "
                                       + op.getPath () + " zbog ciklusa " + cycle);
             agent->setRetryCooldown (true);
         } else {
-            if (!holder.empty ()) {
-                deadlock_graph.add_edge (agent->getId (), holder);
-            }
+            if (!holder.empty ()) deadlock_graph.add_edge (agent->getId (), holder);
             agent->setState (AgentState::BLOCKED);
-            event_log.log (current_tick,
-                           agent->getId () + " OPEN " + op.getPath ()
-                               + " -> blokiran, ceka " + holder);
+            event_log.log (current_tick, agent->getId () + " OPEN " + op.getPath ()
+                           + " -> blokiran, ceka " + holder);
         }
         return;
     }
 
-    event_log.log (current_tick, agent->getId () + " OPEN " + op.getPath () + " -> greska "
-                                     + std::to_string (static_cast<int> (res)));
+    event_log.log (current_tick, agent->getId () + " OPEN " + op.getPath ()
+                   + " -> greska " + std::to_string (static_cast<int> (res)));
     agent->advance_op ();
 }
 
@@ -218,22 +194,18 @@ void Simulator::handle_close (std::shared_ptr<Agent> agent, const Operation& op)
         try_unblock_agents ();
         return;
     }
-
-    event_log.log (current_tick, agent->getId () + " CLOSE " + op.getHandle () + " -> greska "
-                                     + std::to_string (static_cast<int> (res)));
+    event_log.log (current_tick, agent->getId () + " CLOSE " + op.getHandle ()
+                   + " -> greska " + std::to_string (static_cast<int> (res)));
     agent->advance_op ();
 }
 
 void Simulator::try_unblock_agents () {
     for (auto& agent : all_agents) {
         if (agent->getState () != AgentState::BLOCKED) continue;
-
         const Operation& op = agent->current_op ();
         if (op.getType () != OperationType::OPEN) continue;
-
         std::string holder = vfs->get_lock_holder (op.getPath ());
         if (!holder.empty ()) continue;
-
         deadlock_graph.remove_edges_for (agent->getId ());
         scheduler->unblock_agent (agent->getId ());
         event_log.log (current_tick, agent->getId () + " deblokiran, ponavlja OPEN " + op.getPath ());
@@ -242,54 +214,44 @@ void Simulator::try_unblock_agents () {
 
 void Simulator::update_gantt () {
     auto running = scheduler->get_running ();
-
     std::vector<std::string> current_slot_agent (cfg.settings.max_running_agents, "");
     int idx = 0;
     for (const auto& agent : running) {
-        if (idx < cfg.settings.max_running_agents) {
-            current_slot_agent[idx] = agent->getId ();
-            idx++;
-        }
+        if (idx < cfg.settings.max_running_agents)
+            current_slot_agent[idx++] = agent->getId ();
     }
 
     for (int slot = 0; slot < cfg.settings.max_running_agents; slot++) {
         const std::string& agent_now  = current_slot_agent[slot];
         const std::string& agent_prev = last_slot_agent[slot];
-
         if (agent_now != agent_prev) {
-            if (!gantt[slot].empty ()) {
+            if (!gantt[slot].empty ())
                 gantt[slot].back ().end = current_tick;
-            }
             gantt[slot].push_back ({current_tick, current_tick + 1, agent_now});
             last_slot_agent[slot] = agent_now;
         } else {
-            if (gantt[slot].empty ()) {
+            if (gantt[slot].empty ())
                 gantt[slot].push_back ({current_tick, current_tick + 1, agent_now});
-            } else {
+            else
                 gantt[slot].back ().end = current_tick + 1;
-            }
         }
     }
 }
 
 void Simulator::update_wait_times () {
     std::unordered_set<std::string> running_ids;
-    for (const auto& agent : scheduler->get_running ()) {
+    for (const auto& agent : scheduler->get_running ())
         running_ids.insert (agent->getId ());
-    }
 
     for (auto& agent : all_agents) {
         if (agent->getState () == AgentState::READY
             && agent->getArrivalTime () <= current_tick
-            && running_ids.find (agent->getId ()) == running_ids.end ()) {
+            && !running_ids.count (agent->getId ()))
             agent->addWaitTime (1);
-        }
     }
-
     for (auto& agent : all_agents) {
-        if (agent->getState () == AgentState::BLOCKED) {
+        if (agent->getState () == AgentState::BLOCKED)
             agent->incrementBlockedTime ();
-        }
     }
 }
 
@@ -300,8 +262,8 @@ void Simulator::print_gantt (std::ostream& out) const {
         bool first = true;
         for (const auto& seg : segments) {
             if (!first) out << " | ";
-            out << "[" << seg.start << "," << seg.end << "] ";
-            out << (seg.agent_id.empty () ? "idle" : seg.agent_id);
+            out << "[" << seg.start << "," << seg.end << "] "
+                << (seg.agent_id.empty () ? "idle" : seg.agent_id);
             first = false;
         }
         out << "\n";
@@ -319,7 +281,6 @@ void Simulator::print_agent_summary (std::ostream& out) const {
         << std::setw (12) << "Cekanje"
         << std::setw (12) << "Blokiran"
         << "Preuzimanja\n";
-
     for (const auto& agent : all_agents) {
         std::string status;
         switch (agent->getState ()) {
@@ -347,27 +308,22 @@ void Simulator::print_rejected_locks (std::ostream& out) const {
         out << "Nema odbijenih zakljucavanja.\n";
         return;
     }
-    for (const auto& msg : rejected_locks) {
+    for (const auto& msg : rejected_locks)
         out << msg << "\n";
-    }
 }
 
 void Simulator::print_statistics (std::ostream& out) const {
     out << "\n=== Statistika ===\n";
     out << "Broj sprijecenih zastoja: " << rejected_locks.size () << "\n";
-
-    double total_wait    = 0.0;
-    double total_blocked = 0.0;
-    int    count         = static_cast<int> (all_agents.size ());
-
-    for (const auto& agent : all_agents) {
-        total_wait    += agent->getWaitTime ();
-        total_blocked += agent->getBlockedTime ();
+    double total_wait = 0, total_blocked = 0;
+    int count = (int)all_agents.size ();
+    for (const auto& a : all_agents) {
+        total_wait    += a->getWaitTime ();
+        total_blocked += a->getBlockedTime ();
     }
-
     if (count > 0) {
         out << std::fixed << std::setprecision (2);
-        out << "Prosjecno vrijeme cekanja: "   << (total_wait    / count) << "\n";
-        out << "Prosjecno vrijeme blokiranja: " << (total_blocked / count) << "\n";
+        out << "Prosjecno vrijeme cekanja: "   << total_wait    / count << "\n";
+        out << "Prosjecno vrijeme blokiranja: " << total_blocked / count << "\n";
     }
 }
