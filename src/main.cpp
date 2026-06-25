@@ -7,13 +7,14 @@
 #ifdef _WIN32
 #    include <windows.h>
 #endif
+
 int main (int argc, char* argv[]) {
-    // UTF-8 podrška
 #ifdef _WIN32
     SetConsoleOutputCP (CP_UTF8);
 #endif
+
     if (argc < 2) {
-        std::cerr << "Upotreba: simulator <config.json>\n";
+        std::cerr << "Upotreba: simulator <config.json>\n" << std::flush;
         return 1;
     }
 
@@ -22,7 +23,10 @@ int main (int argc, char* argv[]) {
         Simulator sim (config);
         sim.run ();
     } catch (const std::exception& e) {
-        std::cerr << "Greška: " << e.what () << "\n";
+        std::cerr << "\nGreska: " << e.what () << "\n" << std::flush;
+        return 1;
+    } catch (...) {
+        std::cerr << "\nNepoznata greska!\n" << std::flush;
         return 1;
     }
 
