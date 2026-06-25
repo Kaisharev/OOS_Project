@@ -7,5 +7,5 @@ TEST (ConfigTest, Parsiranje) {
 
     EXPECT_EQ (cfg.agents.size (), 3);
     EXPECT_EQ (cfg.settings.max_running_agents, 3);
-    EXPECT_EQ (cfg.mounts[0].mode, MountPoint::Mode::RW);
+    EXPECT_EQ (cfg.mounts[0].mode, MountPoint::Mode::RO);
 }
