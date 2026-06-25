@@ -4,7 +4,14 @@
 #include "core/Config.hpp"
 #include "simulation/Simulator.hpp"
 
+#ifdef _WIN32
+#    include <windows.h>
+#endif
 int main (int argc, char* argv[]) {
+    // UTF-8 podrška
+#ifdef _WIN32
+    SetConsoleOutputCP (CP_UTF8);
+#endif
     if (argc < 2) {
         std::cerr << "Upotreba: simulator <config.json>\n";
         return 1;
