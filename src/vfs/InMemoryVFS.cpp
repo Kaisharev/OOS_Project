@@ -10,30 +10,44 @@ std::string InMemoryVFS::read_content (const std::filesystem::path& file_path) {
     file.close ();
     return content;
 }
+
 VFSResult InMemoryVFS::mount (const MountPoint& mount_point) {
     std::filesystem::path mount_path = mount_point.source;
     if (!std::filesystem::exists (mount_path)) {
         std::cerr << "Mount path ne postoji: " << mount_path << std::endl;
         return VFSResult::NOT_FOUND;
     }
+
+    bool is_ro = (mount_point.mode == MountPoint::Mode::RO);
+
+    if (std::filesystem::is_regular_file (mount_path)) {
+        // Direktno mountovanje jednog fajla
+        std::string content = read_content (mount_path);
+        nodes[mount_point.target] = VFSNode{mount_path.filename ().string (), VFSNodeType::FILE, content, is_ro};
+        return VFSResult::OK;
+    }
+
     if (!std::filesystem::is_directory (mount_path)) {
-        std::cerr << "Mount path nije direktorij: " << mount_path << std::endl;
+        std::cerr << "Mount path nije direktorij ni fajl: " << mount_path << std::endl;
         return VFSResult::NOT_FOUND;
     }
 
     nodes[mount_point.target] =
-        VFSNode{mount_path.filename ().string (), VFSNodeType::DIRECTORY, "", mount_point.mode == MountPoint::Mode::RO};
+        VFSNode{mount_path.filename ().string (), VFSNodeType::DIRECTORY, "", is_ro};
 
     for (const auto& entry : std::filesystem::recursive_directory_iterator (mount_path)) {
+        std::string relative_path = std::filesystem::relative (entry.path (), mount_path).string ();
+        // Normalizuj separatore na /
+        for (char& c : relative_path) {
+            if (c == '\\') c = '/';
+        }
+        std::string vfs_path = mount_point.target + "/" + relative_path;
+
         if (entry.is_regular_file ()) {
-            std::string relative_path = std::filesystem::relative (entry.path (), mount_path).string ();
-            std::string vfs_path = mount_point.target + "/" + relative_path;
             std::string content = read_content (entry.path ());
-            nodes[vfs_path] = VFSNode{relative_path, VFSNodeType::FILE, content, mount_point.mode == MountPoint::Mode::RO};
-        } else {
-            std::string relative_path = std::filesystem::relative (entry.path (), mount_path).string ();
-            std::string vfs_path = mount_point.target + "/" + relative_path;
-            nodes[vfs_path] = VFSNode{relative_path, VFSNodeType::DIRECTORY, "", mount_point.mode == MountPoint::Mode::RO};
+            nodes[vfs_path] = VFSNode{relative_path, VFSNodeType::FILE, content, is_ro};
+        } else if (entry.is_directory ()) {
+            nodes[vfs_path] = VFSNode{relative_path, VFSNodeType::DIRECTORY, "", is_ro};
         }
     }
     return VFSResult::OK;
@@ -59,73 +73,62 @@ VFSNode* InMemoryVFS::resolve_file_node (const std::string& file_path) {
 FileHandle* InMemoryVFS::resolve_handle (const std::string& agent_id, const std::string& handle) {
     auto agent_it = agent_handles.find (agent_id);
     if (agent_it == agent_handles.end ()) {
-        std::cerr << "Neispravan handle: " << handle << std::endl;
         return nullptr;
     }
-
     auto handle_it = agent_it->second.find (handle);
     if (handle_it == agent_it->second.end ()) {
-        std::cerr << "Neispravan handle: " << handle << std::endl;
         return nullptr;
     }
-
     return &handle_it->second;
 }
-// TODO:Bacaj изузетке ko pokemone. - Реко Јоле мора на српском!
-// od kud sake na nebesima?
+
 VFSResult InMemoryVFS::open (const std::string& agent_id, const std::string& path, const std::string& mode,
                              const std::string& handle) {
     VFSNode* node = resolve_path (path);
     if (node == nullptr) {
-        std::cerr << "Fajl nije pronađen: " << path << std::endl;
         return VFSResult::NOT_FOUND;
     }
-    if (mode != "read" && mode != "write") {
-        std::cerr << "Neispravan mode: " << mode << std::endl;
+    if (mode != "read" && mode != "write" && mode != "append") {
         return VFSResult::INVALID_MODE;
     }
     if (node->type == VFSNodeType::DIRECTORY) {
-        std::cerr << "Ne mogu otvoriti direktorij kao fajl: " << path << std::endl;
         return VFSResult::NOT_FOUND;
     }
-    if (node->is_read_only && mode == "write") {
-        std::cerr << "Pristup nije dozvoljen: " << path << std::endl;
+    if (node->is_read_only && (mode == "write" || mode == "append")) {
         return VFSResult::PERMISSION_DENIED;
     }
     if (agent_handles[agent_id].find (handle) != agent_handles[agent_id].end ()) {
-        std::cerr << "Handle već postoji: " << handle << std::endl;
         return VFSResult::INVALID_HANDLE;
     }
-    bool locked = false;
 
+    bool locked = false;
     if (mode == "read") {
         locked = locks[path].try_lock_read (agent_id);
     } else {
+        // write i append zahtijevaju ekskluzivan pristup (write lock)
         locked = locks[path].try_lock_write (agent_id);
     }
+
     if (!locked) {
-        std::cerr << "Ne mogu zauzeti fajl: " << path << std::endl;
         return VFSResult::WOULD_BLOCK;
     }
-    agent_handles[agent_id][handle] = FileHandle{path, mode};
+
+    agent_handles[agent_id][handle] = FileHandle{path, mode, true};
     return VFSResult::OK;
 }
+
 VFSResult InMemoryVFS::read (const std::string& agent_id, const std::string& handle, std::string& out_content) {
     FileHandle* file_handle = resolve_handle (agent_id, handle);
     if (file_handle == nullptr) {
         return VFSResult::INVALID_HANDLE;
     }
-
-    if (file_handle->mode == "write") {
-        std::cerr << "Nije dozvoljeno čitanje iz fajla otvorenog u write modu: " << file_handle->vfs_path << std::endl;
+    if (file_handle->mode != "read") {
         return VFSResult::PERMISSION_DENIED;
     }
-
     VFSNode* node = resolve_file_node (file_handle->vfs_path);
     if (node == nullptr) {
         return VFSResult::NOT_FOUND;
     }
-
     out_content = node->file_content;
     return VFSResult::OK;
 }
@@ -135,17 +138,13 @@ VFSResult InMemoryVFS::write (const std::string& agent_id, const std::string& ha
     if (file_handle == nullptr) {
         return VFSResult::INVALID_HANDLE;
     }
-
     if (file_handle->mode == "read") {
-        std::cerr << "Nije dozvoljeno pisanje u fajl otvoren za čitanje: " << file_handle->vfs_path << std::endl;
         return VFSResult::PERMISSION_DENIED;
     }
-
     VFSNode* node = resolve_file_node (file_handle->vfs_path);
     if (node == nullptr) {
         return VFSResult::NOT_FOUND;
     }
-
     node->file_content = data;
     return VFSResult::OK;
 }
@@ -155,17 +154,13 @@ VFSResult InMemoryVFS::append (const std::string& agent_id, const std::string& h
     if (file_handle == nullptr) {
         return VFSResult::INVALID_HANDLE;
     }
-
     if (file_handle->mode == "read") {
-        std::cerr << "Nije dozvoljeno dodavanje u fajl otvoren za čitanje: " << file_handle->vfs_path << std::endl;
         return VFSResult::PERMISSION_DENIED;
     }
-
     VFSNode* node = resolve_file_node (file_handle->vfs_path);
     if (node == nullptr) {
         return VFSResult::NOT_FOUND;
     }
-
     node->file_content += data;
     return VFSResult::OK;
 }
@@ -178,12 +173,10 @@ VFSResult InMemoryVFS::close (const std::string& agent_id, const std::string& ha
 
     if (file_handle->mode == "read") {
         if (!locks[file_handle->vfs_path].unlock_read (agent_id)) {
-            std::cerr << "Nije dozvoljen pristup fajlu: " << file_handle->vfs_path << std::endl;
             return VFSResult::PERMISSION_DENIED;
         }
     } else {
         if (!locks[file_handle->vfs_path].unlock_write (agent_id)) {
-            std::cerr << "Nije dozvoljen pristup fajlu: " << file_handle->vfs_path << std::endl;
             return VFSResult::PERMISSION_DENIED;
         }
     }
@@ -197,9 +190,18 @@ VFSResult InMemoryVFS::close (const std::string& agent_id, const std::string& ha
 }
 
 void InMemoryVFS::dump (std::ostream& out) const {
+    out << "=== Završno stanje VFS-a ===\n";
+    // Sortirano po putanji radi čitljivosti
+    std::vector<std::pair<std::string, const VFSNode*>> sorted_nodes;
     for (const auto& [path, node] : nodes) {
-        if (node.type == VFSNodeType::FILE) {
-            out << "Sadržaj fajla " << path << ": " << node.file_content << std::endl;
+        sorted_nodes.emplace_back (path, &node);
+    }
+    std::sort (sorted_nodes.begin (), sorted_nodes.end (),
+               [] (const auto& a, const auto& b) { return a.first < b.first; });
+
+    for (const auto& [path, node] : sorted_nodes) {
+        if (node->type == VFSNodeType::FILE) {
+            out << path << ": \"" << node->file_content << "\"\n";
         }
     }
 }
