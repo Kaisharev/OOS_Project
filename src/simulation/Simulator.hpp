@@ -52,4 +52,5 @@ class Simulator {
         void print_statistics (std::ostream& out) const;
         void mark_done (std::shared_ptr<Agent> agent);
         void close_gantt_for_agent (const std::string& agent_id);
+        void execute_agent_tick (std::shared_ptr<Agent> agent);
 };

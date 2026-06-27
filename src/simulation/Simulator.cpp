@@ -70,6 +70,7 @@ void Simulator::init () {
         event_log.log (agent_cfg.arrival_time, "Agent " + agent_cfg.id + " stigao, prioritet=" + std::to_string (agent_cfg.priority));
     }
 
+    // Tick 0: popuni slotove i zabilježi Gantovu kartu od tika 0
     int saved_tick = current_tick;
     current_tick = 0;
     scheduler->tick (0);
@@ -92,30 +93,21 @@ void Simulator::step () {
         if (agent->getStartTime () == -1) agent->setStartTime (current_tick);
         if (agent->getJustPreempted ()) continue;
         if (agent->getRetryCooldown ()) continue;
-        execute_agent_tick (agent);
+        execute_operation (agent);
     }
 
     try_unblock_agents ();
+
+    // Gantt se uzima NAKON svih promjena u tiku (deblokiranje, završavanje)
     update_gantt ();
 }
 
-// Izvrsava operacije agenta u petlji dok su instant.
-// Staje na: THINK (trosi tik), BLOCKED, ili agent viseg prioriteta ceka u ready_queue.
 void Simulator::execute_agent_tick (std::shared_ptr<Agent> agent) {
-    auto* sched = dynamic_cast<PriorityPreemptiveScheduler*> (scheduler.get ());
-
-    while (agent->has_next_op () && agent->getState () == AgentState::RUNNING) {
-        // Ako postoji agent viseg prioriteta koji ceka - ustupamo tik
-        if (sched && sched->has_higher_priority_waiting (agent->getPriority ())) break;
-
-        bool consumed_tick = execute_operation (agent);
-        if (consumed_tick) break;
-    }
+    execute_operation (agent);
 }
 
-// Vraca true ako je operacija potrosila tik (THINK), false za instant operacije.
-bool Simulator::execute_operation (std::shared_ptr<Agent> agent) {
-    if (!agent->has_next_op ()) return false;
+void Simulator::execute_operation (std::shared_ptr<Agent> agent) {
+    if (!agent->has_next_op ()) return;
     const Operation& op = agent->current_op ();
     switch (op.getType ()) {
         case OperationType::THINK: {
@@ -128,7 +120,7 @@ bool Simulator::execute_operation (std::shared_ptr<Agent> agent) {
                 agent->advance_op ();
                 if (!agent->has_next_op ()) mark_done (agent);
             }
-            return true;  // THINK trosi tik
+            break;
         }
         case OperationType::READ: {
             std::string content;
@@ -140,7 +132,7 @@ bool Simulator::execute_operation (std::shared_ptr<Agent> agent) {
             } else {
                 event_log.log (current_tick, agent->getId () + " READ " + op.getHandle () + " -> greska");
             }
-            return false;
+            break;
         }
         case OperationType::WRITE: {
             VFSResult res = vfs->write (agent->getId (), op.getHandle (), op.getData ());
@@ -149,7 +141,7 @@ bool Simulator::execute_operation (std::shared_ptr<Agent> agent) {
                 agent->advance_op ();
                 if (!agent->has_next_op ()) mark_done (agent);
             }
-            return false;
+            break;
         }
         case OperationType::APPEND: {
             VFSResult res = vfs->append (agent->getId (), op.getHandle (), op.getData ());
@@ -158,19 +150,17 @@ bool Simulator::execute_operation (std::shared_ptr<Agent> agent) {
                 agent->advance_op ();
                 if (!agent->has_next_op ()) mark_done (agent);
             }
-            return false;
+            break;
         }
         case OperationType::OPEN: {
             handle_open (agent, op);
-            // Ako je agent postao BLOCKED, while uvjet ce stati
-            return false;
+            break;
         }
         case OperationType::CLOSE: {
             handle_close (agent, op);
-            return false;
+            break;
         }
     }
-    return false;
 }
 
 void Simulator::handle_open (std::shared_ptr<Agent> agent, const Operation& op) {
@@ -193,8 +183,8 @@ void Simulator::handle_open (std::shared_ptr<Agent> agent, const Operation& op) 
             deadlock_graph.remove_edges_for (agent->getId ());
             std::string cycle = deadlock_graph.get_cycle_path (agent->getId (), holder);
             event_log.log (current_tick, agent->getId () + " OPEN " + op.getPath () + " -> odbijeno, nastao bi ciklus " + cycle);
-            rejected_locks.push_back ("[" + std::to_string (current_tick) + "] " + agent->getId () +
-                                      " nije dobio zakljucavanje nad " + op.getPath () + " zbog ciklusa " + cycle);
+            rejected_locks.push_back ("[" + std::to_string (current_tick) + "] " + agent->getId () + " nije dobio zakljucavanje nad " +
+                                      op.getPath () + " zbog ciklusa " + cycle);
             agent->advance_op ();
             if (!agent->has_next_op ()) mark_done (agent);
         } else {
@@ -234,7 +224,7 @@ void Simulator::try_unblock_agents () {
         deadlock_graph.remove_edges_for (agent->getId ());
         scheduler->unblock_agent (agent->getId ());
         event_log.log (current_tick, agent->getId () + " deblokiran, ponavlja OPEN " + op.getPath ());
-        execute_agent_tick (agent);
+        execute_operation (agent);
     }
 }
 

@@ -16,7 +16,7 @@
         },
         {
             "id": "A2",
-            "priority": 2,
+            "priority": 0,
             "arrival_time": 0,
             "script": "config/examples/03_deadlock/agents/a2.txt"
         }
