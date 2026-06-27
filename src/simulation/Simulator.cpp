@@ -69,6 +69,22 @@ void Simulator::init () {
         scheduler->add_agent (agent);
         event_log.log (agent_cfg.arrival_time, "Agent " + agent_cfg.id + " stigao, prioritet=" + std::to_string (agent_cfg.priority));
     }
+
+    // Tick 0: popuni slotove i zabilježi Gantovu kartu od tika 0
+    // current_tick je vec 1 u Simulator.hpp, privremeno koristimo 0 samo za gantt init
+    int saved_tick = current_tick;
+    current_tick = 0;
+    scheduler->tick (0);
+    // Loguj slot dodjele
+    auto slot_agents = scheduler->get_slot_agents ();
+    for (int i = 0; i < (int)slot_agents.size (); i++) {
+        if (slot_agents[i]) {
+            event_log.log (0, "slot_" + std::to_string (i + 1) + " <- " + slot_agents[i]->getId ());
+            slot_agents[i]->setStartTime (0);
+        }
+    }
+    update_gantt ();
+    current_tick = saved_tick;
 }
 
 void Simulator::step () {
@@ -238,7 +254,6 @@ void Simulator::update_gantt () {
             if (gantt[slot].empty ()) {
                 gantt[slot].push_back ({current_tick, current_tick + 1, agent_now});
             } else {
-                // Produži samo ako nije idle segment koji je već zatvoren
                 auto& last = gantt[slot].back ();
                 if (!(last.agent_id.empty () && last.start == last.end)) {
                     last.end = current_tick + 1;
@@ -266,7 +281,7 @@ void Simulator::print_gantt (std::ostream& out) const {
         out << "slot_" << (slot + 1) << ": ";
         bool first = true;
         for (const auto& seg : segments) {
-            if (seg.start == seg.end) continue;  // preskoči prazne intervale
+            if (seg.start == seg.end) continue;
             if (!first) out << " | ";
             out << "[" << seg.start << "," << seg.end << "] " << (seg.agent_id.empty () ? "idle" : seg.agent_id);
             first = false;
