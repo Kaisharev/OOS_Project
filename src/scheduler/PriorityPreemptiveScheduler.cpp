@@ -46,16 +46,19 @@ void PriorityPreemptiveScheduler::check_preemption () {
     for (auto& slot : running_slots) {
         if (!slot) continue;
         if (ready_queue.empty ()) break;
-        const auto& candidate = ready_queue.top ();
+        // Kopiramo kandidata - ne smijemo drzati referencu na top() nakon push()
+        auto candidate = ready_queue.top ();
         if (candidate->getPriority () < slot->getPriority ()) {
-            slot->setState (AgentState::READY);
-            slot->incrementPreemptions ();
-            ready_queue.push (slot);
-            auto incoming = ready_queue.top ();
+            // Izvuci kandidata iz queue-a prije nego pushnemo stari agent nazad
             ready_queue.pop ();
-            incoming->setState (AgentState::RUNNING);
-            incoming->setJustPreempted (true);
-            slot = incoming;
+            auto evicted = slot;
+            evicted->setState (AgentState::READY);
+            evicted->incrementPreemptions ();
+            candidate->setState (AgentState::RUNNING);
+            candidate->setJustPreempted (true);
+            slot = candidate;
+            // Pushnemo evicted agenta tek nakon sto smo gotovi sa slotom
+            ready_queue.push (evicted);
         }
     }
 }
