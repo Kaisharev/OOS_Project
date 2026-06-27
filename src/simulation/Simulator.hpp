@@ -1,5 +1,4 @@
 #pragma once
-#include <map>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -8,10 +7,15 @@
 #include "../agent/Agent.hpp"
 #include "../core/Config.hpp"
 #include "../deadlock/DeadlockGraph.hpp"
+#include "../execution/OperationExecutor.hpp"
+#include "../reporting/GanttTracker.hpp"
+#include "../reporting/SimulationReporter.hpp"
 #include "../scheduler/IScheduler.hpp"
 #include "../vfs/InMemoryVFS.hpp"
 #include "EventLog.hpp"
 
+// SRP: Simulator orkestrira simulaciju - ne izvrsava operacije, ne formatira output.
+// DIP: prima IScheduler kao apstrakciju (dependency injection spreman za prosirenje).
 class Simulator {
     public:
         explicit Simulator (const Config& cfg);
@@ -19,7 +23,7 @@ class Simulator {
 
     private:
         Config cfg;
-        int current_tick = 1;  // tick 0 je rezervisan za arrival/inicijalizaciju
+        int current_tick = 1;
 
         std::unique_ptr<InMemoryVFS> vfs;
         std::unique_ptr<IScheduler> scheduler;
@@ -29,28 +33,15 @@ class Simulator {
         EventLog event_log;
         std::vector<std::string> rejected_locks;
 
-        struct GanttSegment {
-                int start, end;
-                std::string agent_id;
-        };
-        std::map<int, std::vector<GanttSegment>> gantt;
-        std::vector<std::string> last_slot_agent;
+        // Delegati za SRP - svaki odgovoran za svoju oblast
+        std::unique_ptr<OperationExecutor> executor;   // izvrsavanje operacija
+        std::unique_ptr<GanttTracker> gantt_tracker;   // pracenje Gantove karte
+        SimulationReporter reporter;                   // formatiranje ispisa
 
         void init ();
         void step ();
-        void execute_agent_tick (std::shared_ptr<Agent> agent);
-        bool execute_operation (std::shared_ptr<Agent> agent);  // vraca true ako je potrosila tik
-        void handle_open (std::shared_ptr<Agent> agent, const Operation& op);
-        void handle_close (std::shared_ptr<Agent> agent, const Operation& op);
         void try_unblock_agents ();
-        void update_gantt ();
         void update_wait_times ();
         bool is_global_deadlock () const;
-
-        void print_gantt (std::ostream& out) const;
-        void print_agent_summary (std::ostream& out) const;
-        void print_rejected_locks (std::ostream& out) const;
-        void print_statistics (std::ostream& out) const;
         void mark_done (std::shared_ptr<Agent> agent);
-        void close_gantt_for_agent (const std::string& agent_id);
 };
