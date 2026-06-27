@@ -38,7 +38,8 @@ class Simulator {
 
         void init ();
         void step ();
-        void execute_operation (std::shared_ptr<Agent> agent);
+        void execute_agent_tick (std::shared_ptr<Agent> agent);
+        bool execute_operation (std::shared_ptr<Agent> agent);  // vraca true ako je potrosila tik
         void handle_open (std::shared_ptr<Agent> agent, const Operation& op);
         void handle_close (std::shared_ptr<Agent> agent, const Operation& op);
         void try_unblock_agents ();
@@ -52,5 +53,4 @@ class Simulator {
         void print_statistics (std::ostream& out) const;
         void mark_done (std::shared_ptr<Agent> agent);
         void close_gantt_for_agent (const std::string& agent_id);
-        void execute_agent_tick (std::shared_ptr<Agent> agent);
 };
