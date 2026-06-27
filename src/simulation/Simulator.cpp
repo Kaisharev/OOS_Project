@@ -70,7 +70,6 @@ void Simulator::init () {
         event_log.log (agent_cfg.arrival_time, "Agent " + agent_cfg.id + " stigao, prioritet=" + std::to_string (agent_cfg.priority));
     }
 
-    // Tick 0: popuni slotove i zabilježi Gantovu kartu od tika 0
     int saved_tick = current_tick;
     current_tick = 0;
     scheduler->tick (0);
@@ -93,21 +92,30 @@ void Simulator::step () {
         if (agent->getStartTime () == -1) agent->setStartTime (current_tick);
         if (agent->getJustPreempted ()) continue;
         if (agent->getRetryCooldown ()) continue;
-        execute_operation (agent);
+        execute_agent_tick (agent);
     }
 
     try_unblock_agents ();
-
-    // Gantt se uzima NAKON svih promjena u tiku (deblokiranje, završavanje)
     update_gantt ();
 }
 
+// Izvrsava operacije agenta u petlji dok su instant.
+// Staje na: THINK (trosi tik), BLOCKED, ili agent viseg prioriteta ceka u ready_queue.
 void Simulator::execute_agent_tick (std::shared_ptr<Agent> agent) {
-    execute_operation (agent);
+    auto* sched = dynamic_cast<PriorityPreemptiveScheduler*> (scheduler.get ());
+
+    while (agent->has_next_op () && agent->getState () == AgentState::RUNNING) {
+        // Ako postoji agent viseg prioriteta koji ceka - ustupamo tik
+        if (sched && sched->has_higher_priority_waiting (agent->getPriority ())) break;
+
+        bool consumed_tick = execute_operation (agent);
+        if (consumed_tick) break;
+    }
 }
 
-void Simulator::execute_operation (std::shared_ptr<Agent> agent) {
-    if (!agent->has_next_op ()) return;
+// Vraca true ako je operacija potrosila tik (THINK), false za instant operacije.
+bool Simulator::execute_operation (std::shared_ptr<Agent> agent) {
+    if (!agent->has_next_op ()) return false;
     const Operation& op = agent->current_op ();
     switch (op.getType ()) {
         case OperationType::THINK: {
@@ -120,7 +128,7 @@ void Simulator::execute_operation (std::shared_ptr<Agent> agent) {
                 agent->advance_op ();
                 if (!agent->has_next_op ()) mark_done (agent);
             }
-            break;
+            return true;  // THINK trosi tik
         }
         case OperationType::READ: {
             std::string content;
@@ -132,7 +140,7 @@ void Simulator::execute_operation (std::shared_ptr<Agent> agent) {
             } else {
                 event_log.log (current_tick, agent->getId () + " READ " + op.getHandle () + " -> greska");
             }
-            break;
+            return false;
         }
         case OperationType::WRITE: {
             VFSResult res = vfs->write (agent->getId (), op.getHandle (), op.getData ());
@@ -141,7 +149,7 @@ void Simulator::execute_operation (std::shared_ptr<Agent> agent) {
                 agent->advance_op ();
                 if (!agent->has_next_op ()) mark_done (agent);
             }
-            break;
+            return false;
         }
         case OperationType::APPEND: {
             VFSResult res = vfs->append (agent->getId (), op.getHandle (), op.getData ());
@@ -150,17 +158,19 @@ void Simulator::execute_operation (std::shared_ptr<Agent> agent) {
                 agent->advance_op ();
                 if (!agent->has_next_op ()) mark_done (agent);
             }
-            break;
+            return false;
         }
         case OperationType::OPEN: {
             handle_open (agent, op);
-            break;
+            // Ako je agent postao BLOCKED, while uvjet ce stati
+            return false;
         }
         case OperationType::CLOSE: {
             handle_close (agent, op);
-            break;
+            return false;
         }
     }
+    return false;
 }
 
 void Simulator::handle_open (std::shared_ptr<Agent> agent, const Operation& op) {
@@ -224,7 +234,7 @@ void Simulator::try_unblock_agents () {
         deadlock_graph.remove_edges_for (agent->getId ());
         scheduler->unblock_agent (agent->getId ());
         event_log.log (current_tick, agent->getId () + " deblokiran, ponavlja OPEN " + op.getPath ());
-        execute_operation (agent);
+        execute_agent_tick (agent);
     }
 }
 
