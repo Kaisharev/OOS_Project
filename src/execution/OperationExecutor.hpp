@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -16,10 +17,10 @@ class OperationExecutor {
                            std::vector<std::string>& rejected_locks);
 
         // Izvrsava trenutnu operaciju agenta.
-        // Vraca true ako je operacija potrosila tik (THINK), false ako se moze nastaviti.
+        // Vraca true ako je operacija potrosila tik (THINK).
         bool execute (std::shared_ptr<Agent> agent, int current_tick);
 
-        // Pokusava deblokirat sve blokirane agente (zove se nakon CLOSE).
+        // Pokusava deblokirat sve blokirane agente.
         void try_unblock_agents (const std::vector<std::shared_ptr<Agent>>& all_agents,
                                  std::function<void (const std::string&)> unblock_cb, int current_tick);
 

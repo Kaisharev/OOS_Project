@@ -1,7 +1,5 @@
 #include "OperationExecutor.hpp"
 
-#include <functional>
-
 OperationExecutor::OperationExecutor (InMemoryVFS& vfs, EventLog& event_log, DeadlockGraph& deadlock_graph,
                                       std::vector<std::string>& rejected_locks)
     : vfs (vfs), event_log (event_log), deadlock_graph (deadlock_graph), rejected_locks (rejected_locks) {}
