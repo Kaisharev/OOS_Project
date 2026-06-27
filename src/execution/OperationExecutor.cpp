@@ -1,37 +1,26 @@
 #include "OperationExecutor.hpp"
 
 OperationExecutor::OperationExecutor (InMemoryVFS& vfs, EventLog& event_log, DeadlockGraph& deadlock_graph,
-                                      std::vector<std::string>& rejected_locks)
-    : vfs (vfs), event_log (event_log), deadlock_graph (deadlock_graph), rejected_locks (rejected_locks) {}
+                                      std::vector<std::string>& rejected_locks, Callback done_cb)
+    : vfs (vfs), event_log (event_log), deadlock_graph (deadlock_graph),
+      rejected_locks (rejected_locks), done_cb (std::move (done_cb)) {}
 
 bool OperationExecutor::execute (std::shared_ptr<Agent> agent, int current_tick) {
     if (!agent->has_next_op ()) return false;
     const Operation& op = agent->current_op ();
     switch (op.getType ()) {
-        case OperationType::THINK:
-            handle_think (agent, current_tick);
-            return true;  // THINK uvijek trosi tik
-        case OperationType::READ:
-            handle_read (agent, current_tick);
-            return false;
-        case OperationType::WRITE:
-            handle_write (agent, current_tick);
-            return false;
-        case OperationType::APPEND:
-            handle_append (agent, current_tick);
-            return false;
-        case OperationType::OPEN:
-            handle_open (agent, current_tick);
-            return false;
-        case OperationType::CLOSE:
-            handle_close (agent, current_tick, nullptr);
-            return false;
+        case OperationType::THINK:  handle_think  (agent, current_tick); return true;
+        case OperationType::READ:   handle_read   (agent, current_tick); return false;
+        case OperationType::WRITE:  handle_write  (agent, current_tick); return false;
+        case OperationType::APPEND: handle_append (agent, current_tick); return false;
+        case OperationType::OPEN:   handle_open   (agent, current_tick); return false;
+        case OperationType::CLOSE:  handle_close  (agent, current_tick); return false;
     }
     return false;
 }
 
 void OperationExecutor::try_unblock_agents (const std::vector<std::shared_ptr<Agent>>& all_agents,
-                                            std::function<void (const std::string&)> unblock_cb, int current_tick) {
+                                            Callback unblock_cb, int current_tick) {
     for (auto& agent : all_agents) {
         if (agent->getState () != AgentState::BLOCKED) continue;
         if (!agent->has_next_op ()) continue;
@@ -50,6 +39,7 @@ void OperationExecutor::mark_done (std::shared_ptr<Agent> agent, int current_tic
     agent->setState (AgentState::DONE);
     agent->setEndTime (current_tick);
     event_log.log (current_tick, "Agent " + agent->getId () + " zavrsio");
+    if (done_cb) done_cb (agent->getId ());  // obavijesti Simulator da zatvori Gantt segment
 }
 
 void OperationExecutor::handle_think (std::shared_ptr<Agent> agent, int current_tick) {
@@ -112,7 +102,6 @@ void OperationExecutor::handle_open (std::shared_ptr<Agent> agent, int current_t
 
     if (res == VFSResult::WOULD_BLOCK) {
         std::string holder = vfs.get_lock_holder (op.getPath ());
-
         if (!holder.empty ()) deadlock_graph.add_edge (agent->getId (), holder);
 
         if (!holder.empty () && deadlock_graph.would_create_cycle_after_add (agent->getId ())) {
@@ -136,8 +125,7 @@ void OperationExecutor::handle_open (std::shared_ptr<Agent> agent, int current_t
     agent->advance_op ();
 }
 
-void OperationExecutor::handle_close (std::shared_ptr<Agent> agent, int current_tick,
-                                      std::function<void (const std::string&)> unblock_cb) {
+void OperationExecutor::handle_close (std::shared_ptr<Agent> agent, int current_tick) {
     const Operation& op = agent->current_op ();
     VFSResult res = vfs.close (agent->getId (), op.getHandle ());
     if (res == VFSResult::OK) {

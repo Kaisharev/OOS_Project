@@ -14,8 +14,6 @@
 #include "../vfs/InMemoryVFS.hpp"
 #include "EventLog.hpp"
 
-// SRP: Simulator orkestrira simulaciju - ne izvrsava operacije, ne formatira output.
-// DIP: prima IScheduler kao apstrakciju (dependency injection spreman za prosirenje).
 class Simulator {
     public:
         explicit Simulator (const Config& cfg);
@@ -33,15 +31,14 @@ class Simulator {
         EventLog event_log;
         std::vector<std::string> rejected_locks;
 
-        // Delegati za SRP - svaki odgovoran za svoju oblast
-        std::unique_ptr<OperationExecutor> executor;   // izvrsavanje operacija
-        std::unique_ptr<GanttTracker> gantt_tracker;   // pracenje Gantove karte
-        SimulationReporter reporter;                   // formatiranje ispisa
+        std::unique_ptr<OperationExecutor> executor;
+        std::unique_ptr<GanttTracker> gantt_tracker;
+        SimulationReporter reporter;
 
         void init ();
         void step ();
         void try_unblock_agents ();
         void update_wait_times ();
         bool is_global_deadlock () const;
-        void mark_done (std::shared_ptr<Agent> agent);
+        void mark_done (std::shared_ptr<Agent> agent);  // zatvara Gantt segment
 };

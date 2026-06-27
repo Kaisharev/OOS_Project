@@ -61,12 +61,16 @@ void Simulator::init () {
             throw std::runtime_error ("Mount neuspjesan za source='" + mount.source + "' target='" + mount.target + "'");
     }
 
-    // DIP: scheduler se konstruise ovdje; zamjena za drugi scheduler = 1 linija
-    scheduler = std::make_unique<PriorityPreemptiveScheduler> (cfg.settings.max_running_agents);
-
-    // Inicijalizacija SRP delegata
-    executor      = std::make_unique<OperationExecutor> (*vfs, event_log, deadlock_graph, rejected_locks);
+    scheduler     = std::make_unique<PriorityPreemptiveScheduler> (cfg.settings.max_running_agents);
     gantt_tracker = std::make_unique<GanttTracker> (cfg.settings.max_running_agents);
+
+    // done_cb: Simulator::mark_done se poziva iz OperationExecutor kad agent zavrsi
+    executor = std::make_unique<OperationExecutor> (
+        *vfs, event_log, deadlock_graph, rejected_locks,
+        [this] (const std::string& id) {
+            for (auto& a : all_agents)
+                if (a->getId () == id) { mark_done (a); return; }
+        });
 
     for (const auto& agent_cfg : cfg.agents) {
         auto parsed = AgentParser::Parse (agent_cfg);
@@ -77,7 +81,6 @@ void Simulator::init () {
                        "Agent " + agent_cfg.id + " stigao, prioritet=" + std::to_string (agent_cfg.priority));
     }
 
-    // Tick 0: popuni slotove i inicijalizuj Gantovu kartu
     int saved_tick = current_tick;
     current_tick   = 0;
     scheduler->tick (0);
@@ -113,9 +116,8 @@ void Simulator::try_unblock_agents () {
 }
 
 void Simulator::mark_done (std::shared_ptr<Agent> agent) {
-    agent->setState (AgentState::DONE);
-    agent->setEndTime (current_tick);
-    event_log.log (current_tick, "Agent " + agent->getId () + " zavrsio");
+    // Stanje i endTime vec postavljeni u OperationExecutor::mark_done,
+    // ovdje samo zatvaramo Gantt segment
     gantt_tracker->close_agent (agent->getId (), current_tick);
 }
 
