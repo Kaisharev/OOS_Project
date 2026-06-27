@@ -94,28 +94,21 @@ void Simulator::step () {
         if (agent->getStartTime () == -1) agent->setStartTime (current_tick);
         if (agent->getJustPreempted ()) continue;
         if (agent->getRetryCooldown ()) continue;
-        execute_agent_tick (agent);
+        execute_operation (agent);
     }
     try_unblock_agents ();
 }
 
-// Izvršava operacije agenta u petlji sve dok su instant (ne troše tik).
-// Staje na THINK (trosi tik) ili BLOCKED (ceka lock).
 void Simulator::execute_agent_tick (std::shared_ptr<Agent> agent) {
-    while (agent->has_next_op () &&
-           agent->getState () == AgentState::RUNNING) {
-        bool consumed_tick = execute_operation (agent);
-        if (consumed_tick) break;  // THINK je potrosio tik, stani
-    }
+    execute_operation (agent);
 }
 
-// Vraca true ako je operacija potrosila tik (THINK),
-// false ako je instant (sve ostalo).
-bool Simulator::execute_operation (std::shared_ptr<Agent> agent) {
-    if (!agent->has_next_op ()) return false;
+void Simulator::execute_operation (std::shared_ptr<Agent> agent) {
+    if (!agent->has_next_op ()) return;
     const Operation& op = agent->current_op ();
     switch (op.getType ()) {
         case OperationType::THINK: {
+            // Prva iteracija: inicijalizuj brojac
             if (agent->getThinkTicksRemaining () == 0) {
                 agent->startThink (op.getThinkingDuration ());
                 event_log.log (current_tick, agent->getId () + " THINK " + std::to_string (op.getThinkingDuration ()));
@@ -125,7 +118,7 @@ bool Simulator::execute_operation (std::shared_ptr<Agent> agent) {
                 agent->advance_op ();
                 if (!agent->has_next_op ()) mark_done (agent);
             }
-            return true;  // THINK uvijek trosi tik
+            break;
         }
         case OperationType::READ: {
             std::string content;
@@ -137,7 +130,7 @@ bool Simulator::execute_operation (std::shared_ptr<Agent> agent) {
             } else {
                 event_log.log (current_tick, agent->getId () + " READ " + op.getHandle () + " -> greska");
             }
-            return false;
+            break;
         }
         case OperationType::WRITE: {
             VFSResult res = vfs->write (agent->getId (), op.getHandle (), op.getData ());
@@ -146,7 +139,7 @@ bool Simulator::execute_operation (std::shared_ptr<Agent> agent) {
                 agent->advance_op ();
                 if (!agent->has_next_op ()) mark_done (agent);
             }
-            return false;
+            break;
         }
         case OperationType::APPEND: {
             VFSResult res = vfs->append (agent->getId (), op.getHandle (), op.getData ());
@@ -155,19 +148,17 @@ bool Simulator::execute_operation (std::shared_ptr<Agent> agent) {
                 agent->advance_op ();
                 if (!agent->has_next_op ()) mark_done (agent);
             }
-            return false;
+            break;
         }
         case OperationType::OPEN: {
             handle_open (agent, op);
-            // Ako je agent postao BLOCKED, loop ce stati zbog while uvjeta
-            return false;
+            break;
         }
         case OperationType::CLOSE: {
             handle_close (agent, op);
-            return false;
+            break;
         }
     }
-    return false;
 }
 
 void Simulator::handle_open (std::shared_ptr<Agent> agent, const Operation& op) {
@@ -231,8 +222,7 @@ void Simulator::try_unblock_agents () {
         deadlock_graph.remove_edges_for (agent->getId ());
         scheduler->unblock_agent (agent->getId ());
         event_log.log (current_tick, agent->getId () + " deblokiran, ponavlja OPEN " + op.getPath ());
-        // Odmah izvrši u istom tiku (instant)
-        execute_agent_tick (agent);
+        execute_operation (agent);
     }
 }
 
