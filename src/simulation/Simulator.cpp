@@ -87,7 +87,6 @@ void Simulator::init () {
 
 void Simulator::step () {
     scheduler->tick (current_tick);
-    update_gantt ();
 
     for (auto& agent : scheduler->get_running ()) {
         if (agent->getState () == AgentState::DONE) continue;
@@ -96,7 +95,11 @@ void Simulator::step () {
         if (agent->getRetryCooldown ()) continue;
         execute_operation (agent);
     }
+
     try_unblock_agents ();
+
+    // Gantt se uzima NAKON svih promjena u tiku (deblokiranje, završavanje)
+    update_gantt ();
 }
 
 void Simulator::execute_agent_tick (std::shared_ptr<Agent> agent) {
@@ -108,7 +111,6 @@ void Simulator::execute_operation (std::shared_ptr<Agent> agent) {
     const Operation& op = agent->current_op ();
     switch (op.getType ()) {
         case OperationType::THINK: {
-            // Prva iteracija: inicijalizuj brojac
             if (agent->getThinkTicksRemaining () == 0) {
                 agent->startThink (op.getThinkingDuration ());
                 event_log.log (current_tick, agent->getId () + " THINK " + std::to_string (op.getThinkingDuration ()));
