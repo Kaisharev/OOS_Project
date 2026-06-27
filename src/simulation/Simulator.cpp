@@ -175,13 +175,15 @@ void Simulator::handle_open (std::shared_ptr<Agent> agent, const Operation& op) 
         if (!holder.empty ()) deadlock_graph.add_edge (agent->getId (), holder);
 
         if (!holder.empty () && deadlock_graph.would_create_cycle_after_add (agent->getId ())) {
+            // Odbijeno zbog ciklusa - ukloni edge, agent ostaje na istoj operaciji
+            // i pokusava ponovo u sljedecem tiku (retry_cooldown = true)
             deadlock_graph.remove_edges_for (agent->getId ());
             std::string cycle = deadlock_graph.get_cycle_path (agent->getId (), holder);
             event_log.log (current_tick, agent->getId () + " OPEN " + op.getPath () + " -> odbijeno, nastao bi ciklus " + cycle);
             rejected_locks.push_back ("[" + std::to_string (current_tick) + "] " + agent->getId () + " nije dobio zakljucavanje nad " +
                                       op.getPath () + " zbog ciklusa " + cycle);
-            agent->advance_op ();
-            if (!agent->has_next_op ()) mark_done (agent);
+            // Ne preskacemo operaciju - agent ce pokusati ponovo sljedeceg tika
+            agent->setRetryCooldown (true);
         } else {
             agent->setState (AgentState::BLOCKED);
             event_log.log (current_tick, agent->getId () + " OPEN " + op.getPath () + " -> blokiran, ceka " + holder);
@@ -219,7 +221,7 @@ void Simulator::try_unblock_agents () {
         deadlock_graph.remove_edges_for (agent->getId ());
         scheduler->unblock_agent (agent->getId ());
         event_log.log (current_tick, agent->getId () + " deblokiran, ponavlja OPEN " + op.getPath ());
-        // Odmah izvrši OPEN u istom tick-u
+        // Odmah izvrsi OPEN u istom tick-u
         execute_operation (agent);
     }
 }
@@ -238,7 +240,6 @@ void Simulator::update_gantt () {
             if (gantt[slot].empty ()) {
                 gantt[slot].push_back ({current_tick, current_tick + 1, agent_now});
             } else {
-                // Produži samo ako nije idle segment koji je već zatvoren
                 auto& last = gantt[slot].back ();
                 if (!(last.agent_id.empty () && last.start == last.end)) {
                     last.end = current_tick + 1;
