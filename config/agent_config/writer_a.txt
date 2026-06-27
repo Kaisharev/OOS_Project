@@ -1,4 +1,0 @@
-THINK 1
-OPEN /work/a.txt write as fa
-APPEND fa "A1 je upisao prvi red\n"
-CLOSE fa

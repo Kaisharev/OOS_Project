@@ -23,8 +23,7 @@ Config Config::load_from_file (const std::string& path) {
         throw std::runtime_error ("Greska pri citanju 'settings': " + std::string (e.what ()));
     }
 
-    std::cout << "Loaded config: max_running_agents = "
-              << config.settings.max_running_agents << std::endl;
+    std::cout << "Loaded config: max_running_agents = " << config.settings.max_running_agents << std::endl;
 
     try {
         for (auto& mount : data.at ("vfs").at ("mounts")) {
@@ -51,10 +50,10 @@ Config Config::load_from_file (const std::string& path) {
     try {
         for (auto& agent : data.at ("agents")) {
             AgentConfig ac;
-            ac.id           = agent.at ("id").get<std::string> ();
-            ac.priority     = agent.at ("priority").get<int> ();
+            ac.id = agent.at ("id").get<std::string> ();
+            ac.priority = agent.at ("priority").get<int> ();
             ac.arrival_time = agent.at ("arrival_time").get<int> ();
-            ac.script_path  = agent.at ("script").get<std::string> ();
+            ac.script_path = agent.at ("script").get<std::string> ();
             config.agents.push_back (ac);
         }
     } catch (const std::runtime_error&) {

@@ -23,16 +23,13 @@ class PriorityPreemptiveScheduler : public IScheduler {
         int max_running_agents;
 
         struct AgentComparator {
-            bool operator() (const std::shared_ptr<Agent>& a,
-                             const std::shared_ptr<Agent>& b) const {
-                return a->getPriority () > b->getPriority ();
-            }
+                bool operator() (const std::shared_ptr<Agent>& a, const std::shared_ptr<Agent>& b) const {
+                    return a->getPriority () > b->getPriority ();
+                }
         };
 
         std::vector<std::shared_ptr<Agent>> pending;
-        std::priority_queue<std::shared_ptr<Agent>,
-                            std::vector<std::shared_ptr<Agent>>,
-                            AgentComparator> ready_queue;
+        std::priority_queue<std::shared_ptr<Agent>, std::vector<std::shared_ptr<Agent>>, AgentComparator> ready_queue;
         std::vector<std::shared_ptr<Agent>> running_slots;
         std::unordered_map<std::string, std::shared_ptr<Agent>> blocked;
 

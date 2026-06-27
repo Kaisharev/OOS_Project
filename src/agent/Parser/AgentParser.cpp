@@ -39,7 +39,7 @@ Agent AgentParser::Parse (const AgentConfig& config) {
     std::string line;
     while (std::getline (script_file, line)) {
         if (line.empty ()) continue;
-        // Ukloni Windows \r ako postoji
+
         if (!line.empty () && line.back () == '\r') line.pop_back ();
         if (line.empty ()) continue;
 
@@ -47,46 +47,40 @@ Agent AgentParser::Parse (const AgentConfig& config) {
         if (tokens.empty ()) continue;
 
         if (tokens[0] == "THINK") {
-            if (tokens.size () != 2)
-                throw std::runtime_error ("THINK zahtjeva 1 argument");
+            if (tokens.size () != 2) throw std::runtime_error ("THINK zahtjeva 1 argument");
             agent.addOp (Operation (OperationType::THINK, std::stoi (std::string (tokens[1])), "", "", "", ""));
 
         } else if (tokens[0] == "OPEN") {
             if (tokens.size () != 5 || std::string (tokens[3]) != "as")
-                throw std::runtime_error ("OPEN: očekivano: OPEN <putanja> <mod> as <handle>");
+                throw std::runtime_error ("OPEN - očekivani argument: OPEN <putanja> <mod> as <handle>");
 
             std::string mode = std::string (tokens[2]);
-            if      (mode == "r")      mode = "read";
-            else if (mode == "w")      mode = "write";
-            else if (mode == "a")      mode = "append";
+            if (mode == "r")
+                mode = "read";
+            else if (mode == "w")
+                mode = "write";
+            else if (mode == "a")
+                mode = "append";
             else if (mode != "read" && mode != "write" && mode != "append")
                 throw std::runtime_error ("Neispravan mode za OPEN: " + mode);
 
-            agent.addOp (Operation (OperationType::OPEN, 0,
-                                    std::string (tokens[1]), "",
-                                    mode, std::string (tokens[4])));
+            agent.addOp (Operation (OperationType::OPEN, 0, std::string (tokens[1]), "", mode, std::string (tokens[4])));
 
         } else if (tokens[0] == "READ") {
-            if (tokens.size () != 2)
-                throw std::runtime_error ("READ zahtjeva 1 argument");
+            if (tokens.size () != 2) throw std::runtime_error ("READ zahtjeva 1 argument");
             agent.addOp (Operation (OperationType::READ, 0, "", "", "", std::string (tokens[1])));
 
         } else if (tokens[0] == "WRITE") {
-            if (tokens.size () != 3)
-                throw std::runtime_error ("WRITE zahtjeva 2 argumenta");
-            agent.addOp (Operation (OperationType::WRITE, 0, "",
-                                    std::string (tokens[2]), "", std::string (tokens[1])));
+            if (tokens.size () != 3) throw std::runtime_error ("WRITE zahtjeva 2 argumenta");
+            agent.addOp (Operation (OperationType::WRITE, 0, "", std::string (tokens[2]), "", std::string (tokens[1])));
 
         } else if (tokens[0] == "CLOSE") {
-            if (tokens.size () != 2)
-                throw std::runtime_error ("CLOSE zahtjeva 1 argument");
+            if (tokens.size () != 2) throw std::runtime_error ("CLOSE zahtjeva 1 argument");
             agent.addOp (Operation (OperationType::CLOSE, 0, "", "", "", std::string (tokens[1])));
 
         } else if (tokens[0] == "APPEND") {
-            if (tokens.size () != 3)
-                throw std::runtime_error ("APPEND zahtjeva 2 argumenta");
-            agent.addOp (Operation (OperationType::APPEND, 0, "",
-                                    std::string (tokens[2]), "", std::string (tokens[1])));
+            if (tokens.size () != 3) throw std::runtime_error ("APPEND zahtjeva 2 argumenta");
+            agent.addOp (Operation (OperationType::APPEND, 0, "", std::string (tokens[2]), "", std::string (tokens[1])));
 
         } else {
             throw std::runtime_error ("Nepoznata operacija: " + std::string (tokens[0]));

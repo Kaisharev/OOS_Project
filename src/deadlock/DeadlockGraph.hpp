@@ -18,6 +18,5 @@ class DeadlockGraph {
 
     private:
         std::map<std::string, std::string> waits_for;
-        bool dfs (const std::string& current, const std::string& target,
-                  std::set<std::string>& visited) const;
+        bool dfs (const std::string& current, const std::string& target, std::set<std::string>& visited) const;
 };

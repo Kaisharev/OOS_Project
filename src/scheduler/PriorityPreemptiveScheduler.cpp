@@ -1,7 +1,6 @@
 #include "PriorityPreemptiveScheduler.hpp"
 
-PriorityPreemptiveScheduler::PriorityPreemptiveScheduler (int max_running_agents)
-    : max_running_agents (max_running_agents) {
+PriorityPreemptiveScheduler::PriorityPreemptiveScheduler (int max_running_agents) : max_running_agents (max_running_agents) {
     running_slots.resize (max_running_agents, nullptr);
 }
 
@@ -68,9 +67,7 @@ void PriorityPreemptiveScheduler::fill_slots () {
 
     for (auto& slot : running_slots) {
         if (slot) continue;
-        while (!ready_queue.empty ()
-               && already_in_slot.count (ready_queue.top ()->getId ()))
-            ready_queue.pop ();
+        while (!ready_queue.empty () && already_in_slot.count (ready_queue.top ()->getId ())) ready_queue.pop ();
         if (ready_queue.empty ()) break;
         auto agent = ready_queue.top ();
         ready_queue.pop ();
@@ -83,12 +80,10 @@ void PriorityPreemptiveScheduler::fill_slots () {
 std::vector<std::shared_ptr<Agent>> PriorityPreemptiveScheduler::get_running () const {
     std::vector<std::shared_ptr<Agent>> running;
     for (const auto& slot : running_slots)
-        if (slot && slot->getState () == AgentState::RUNNING)
-            running.push_back (slot);
+        if (slot && slot->getState () == AgentState::RUNNING) running.push_back (slot);
     return running;
 }
 
-// Vraca running_slots direktno (nullptr za prazan slot) - za Gantt
 std::vector<std::shared_ptr<Agent>> PriorityPreemptiveScheduler::get_slot_agents () const {
     return running_slots;
 }
@@ -106,8 +101,6 @@ bool PriorityPreemptiveScheduler::all_done () const {
     if (!ready_queue.empty ()) return false;
     if (!blocked.empty ()) return false;
     for (const auto& slot : running_slots)
-        if (slot && slot->getState () != AgentState::DONE
-                 && slot->getState () != AgentState::STOPPED)
-            return false;
+        if (slot && slot->getState () != AgentState::DONE && slot->getState () != AgentState::STOPPED) return false;
     return true;
 }

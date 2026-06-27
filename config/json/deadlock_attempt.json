@@ -4,11 +4,7 @@
     },
     "vfs": {
         "mounts": [
-            {
-                "source": "config/examples/03_deadlock/input/work",
-                "target": "/work",
-                "mode": "rw"
-            }
+            { "source": "config/examples/03_deadlock/input/work", "target": "/work", "mode": "rw" }
         ]
     },
     "agents": [

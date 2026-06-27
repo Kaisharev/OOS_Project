@@ -1,5 +1,5 @@
+
 OPEN /work/a.txt write as a
-THINK 1
 OPEN /work/b.txt write as b
 APPEND b "A1\n"
 CLOSE a
