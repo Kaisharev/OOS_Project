@@ -71,11 +71,9 @@ void Simulator::init () {
     }
 
     // Tick 0: popuni slotove i zabilježi Gantovu kartu od tika 0
-    // current_tick je vec 1 u Simulator.hpp, privremeno koristimo 0 samo za gantt init
     int saved_tick = current_tick;
     current_tick = 0;
     scheduler->tick (0);
-    // Loguj slot dodjele
     auto slot_agents = scheduler->get_slot_agents ();
     for (int i = 0; i < (int)slot_agents.size (); i++) {
         if (slot_agents[i]) {
@@ -96,29 +94,25 @@ void Simulator::step () {
         if (agent->getStartTime () == -1) agent->setStartTime (current_tick);
         if (agent->getJustPreempted ()) continue;
         if (agent->getRetryCooldown ()) continue;
-        execute_operation (agent);
+        execute_agent_tick (agent);
     }
     try_unblock_agents ();
 }
 
-void Simulator::close_gantt_for_agent (const std::string& agent_id) {
-    for (int slot = 0; slot < (int)last_slot_agent.size (); slot++) {
-        if (last_slot_agent[slot] == agent_id) {
-            if (!gantt[slot].empty ()) gantt[slot].back ().end = current_tick;
-            last_slot_agent[slot] = "";
-            gantt[slot].push_back ({current_tick, current_tick, ""});
-        }
+// Izvršava operacije agenta u petlji sve dok su instant (ne troše tik).
+// Staje na THINK (trosi tik) ili BLOCKED (ceka lock).
+void Simulator::execute_agent_tick (std::shared_ptr<Agent> agent) {
+    while (agent->has_next_op () &&
+           agent->getState () == AgentState::RUNNING) {
+        bool consumed_tick = execute_operation (agent);
+        if (consumed_tick) break;  // THINK je potrosio tik, stani
     }
 }
 
-void Simulator::mark_done (std::shared_ptr<Agent> agent) {
-    agent->setState (AgentState::DONE);
-    agent->setEndTime (current_tick);
-    event_log.log (current_tick, "Agent " + agent->getId () + " zavrsio");
-    close_gantt_for_agent (agent->getId ());
-}
-
-void Simulator::execute_operation (std::shared_ptr<Agent> agent) {
+// Vraca true ako je operacija potrosila tik (THINK),
+// false ako je instant (sve ostalo).
+bool Simulator::execute_operation (std::shared_ptr<Agent> agent) {
+    if (!agent->has_next_op ()) return false;
     const Operation& op = agent->current_op ();
     switch (op.getType ()) {
         case OperationType::THINK: {
@@ -131,7 +125,7 @@ void Simulator::execute_operation (std::shared_ptr<Agent> agent) {
                 agent->advance_op ();
                 if (!agent->has_next_op ()) mark_done (agent);
             }
-            break;
+            return true;  // THINK uvijek trosi tik
         }
         case OperationType::READ: {
             std::string content;
@@ -143,7 +137,7 @@ void Simulator::execute_operation (std::shared_ptr<Agent> agent) {
             } else {
                 event_log.log (current_tick, agent->getId () + " READ " + op.getHandle () + " -> greska");
             }
-            break;
+            return false;
         }
         case OperationType::WRITE: {
             VFSResult res = vfs->write (agent->getId (), op.getHandle (), op.getData ());
@@ -152,7 +146,7 @@ void Simulator::execute_operation (std::shared_ptr<Agent> agent) {
                 agent->advance_op ();
                 if (!agent->has_next_op ()) mark_done (agent);
             }
-            break;
+            return false;
         }
         case OperationType::APPEND: {
             VFSResult res = vfs->append (agent->getId (), op.getHandle (), op.getData ());
@@ -161,17 +155,19 @@ void Simulator::execute_operation (std::shared_ptr<Agent> agent) {
                 agent->advance_op ();
                 if (!agent->has_next_op ()) mark_done (agent);
             }
-            break;
+            return false;
         }
         case OperationType::OPEN: {
             handle_open (agent, op);
-            break;
+            // Ako je agent postao BLOCKED, loop ce stati zbog while uvjeta
+            return false;
         }
         case OperationType::CLOSE: {
             handle_close (agent, op);
-            break;
+            return false;
         }
     }
+    return false;
 }
 
 void Simulator::handle_open (std::shared_ptr<Agent> agent, const Operation& op) {
@@ -194,8 +190,8 @@ void Simulator::handle_open (std::shared_ptr<Agent> agent, const Operation& op) 
             deadlock_graph.remove_edges_for (agent->getId ());
             std::string cycle = deadlock_graph.get_cycle_path (agent->getId (), holder);
             event_log.log (current_tick, agent->getId () + " OPEN " + op.getPath () + " -> odbijeno, nastao bi ciklus " + cycle);
-            rejected_locks.push_back ("[" + std::to_string (current_tick) + "] " + agent->getId () + " nije dobio zakljucavanje nad " +
-                                      op.getPath () + " zbog ciklusa " + cycle);
+            rejected_locks.push_back ("[" + std::to_string (current_tick) + "] " + agent->getId () +
+                                      " nije dobio zakljucavanje nad " + op.getPath () + " zbog ciklusa " + cycle);
             agent->advance_op ();
             if (!agent->has_next_op ()) mark_done (agent);
         } else {
@@ -235,9 +231,26 @@ void Simulator::try_unblock_agents () {
         deadlock_graph.remove_edges_for (agent->getId ());
         scheduler->unblock_agent (agent->getId ());
         event_log.log (current_tick, agent->getId () + " deblokiran, ponavlja OPEN " + op.getPath ());
-        // Odmah izvrši OPEN u istom tick-u
-        execute_operation (agent);
+        // Odmah izvrši u istom tiku (instant)
+        execute_agent_tick (agent);
     }
+}
+
+void Simulator::close_gantt_for_agent (const std::string& agent_id) {
+    for (int slot = 0; slot < (int)last_slot_agent.size (); slot++) {
+        if (last_slot_agent[slot] == agent_id) {
+            if (!gantt[slot].empty ()) gantt[slot].back ().end = current_tick;
+            last_slot_agent[slot] = "";
+            gantt[slot].push_back ({current_tick, current_tick, ""});
+        }
+    }
+}
+
+void Simulator::mark_done (std::shared_ptr<Agent> agent) {
+    agent->setState (AgentState::DONE);
+    agent->setEndTime (current_tick);
+    event_log.log (current_tick, "Agent " + agent->getId () + " zavrsio");
+    close_gantt_for_agent (agent->getId ());
 }
 
 void Simulator::update_gantt () {
