@@ -111,6 +111,8 @@ void OperationExecutor::handle_open (std::shared_ptr<Agent> agent, int current_t
                            agent->getId () + " OPEN " + op.getPath () + " -> odbijeno, nastao bi ciklus " + cycle);
             rejected_locks.push_back ("[" + std::to_string (current_tick) + "] " + agent->getId () +
                                       " nije dobio zakljucavanje nad " + op.getPath () + " zbog ciklusa " + cycle);
+            // Agent ostaje u slotu i nastavlja sa sljedecom operacijom
+            agent->setState (AgentState::RUNNING);
             agent->advance_op ();
             if (!agent->has_next_op ()) mark_done (agent, current_tick);
         } else {
