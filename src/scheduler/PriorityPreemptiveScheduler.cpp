@@ -94,6 +94,8 @@ void PriorityPreemptiveScheduler::unblock_agent (const std::string& agent_id) {
     it->second->setState (AgentState::READY);
     ready_queue.push (it->second);
     blocked.erase (it);
+    // Odmah popuni slobodne slotove - agent ulazi u slot u istom tiku
+    fill_slots ();
 }
 
 bool PriorityPreemptiveScheduler::all_done () const {
