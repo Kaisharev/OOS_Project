@@ -19,7 +19,7 @@ class Simulator {
 
     private:
         Config cfg;
-        int current_tick = 0;
+        int current_tick = 1;  // tick 0 je rezervisan za arrival/inicijalizaciju
 
         std::unique_ptr<InMemoryVFS> vfs;
         std::unique_ptr<IScheduler> scheduler;
