@@ -6,7 +6,6 @@
 #include "../src/core/AgentState.hpp"
 #include "../src/scheduler/PriorityPreemptiveScheduler.hpp"
 
-// Helper: kreira agenta s osnovnim podacima
 static std::shared_ptr<Agent> make_agent (const std::string& id, int priority, int arrival_time) {
     auto a = std::make_shared<Agent> ();
     a->setId (id);
@@ -80,17 +79,14 @@ TEST (SchedulerTest, UnblockAgentaVracaUReadyQueue) {
     PriorityPreemptiveScheduler sched (1);
     auto a1 = make_agent ("A1", 1, 0);
     sched.add_agent (a1);
-    // first tick: agent arrives and should occupy the slot
     sched.tick (0);
     EXPECT_EQ (sched.get_running ().size (), 1);
     EXPECT_EQ (sched.get_running ()[0]->getId (), "A1");
 
-    // agent blocks and should free the slot
     a1->setState (AgentState::BLOCKED);
     sched.tick (1);
     EXPECT_TRUE (sched.get_running ().empty ());
 
-    // unblock and advance time to let scheduler place it in running again
     sched.unblock_agent (a1->getId ());
     sched.tick (2);
     EXPECT_EQ (sched.get_running ().size (), 1);

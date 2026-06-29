@@ -8,14 +8,12 @@ void DeadlockGraph::remove_edges_for (const std::string& agent) {
     waits_for.erase (agent);
 }
 
-bool DeadlockGraph::dfs (const std::string& current, const std::string& target,
-                         std::set<std::string>& visited) const {
+bool DeadlockGraph::dfs (const std::string& current, const std::string& target, std::set<std::string>& visited) const {
     if (current == target) return true;
     if (visited.count (current)) return false;
     visited.insert (current);
     auto it = waits_for.find (current);
-    if (it != waits_for.end ())
-        return dfs (it->second, target, visited);
+    if (it != waits_for.end ()) return dfs (it->second, target, visited);
     return false;
 }
 
@@ -25,17 +23,14 @@ bool DeadlockGraph::would_create_cycle (const std::string& waiter, const std::st
     return dfs (holder, waiter, visited);
 }
 
-// Provjeri da li graf (edge vec dodan) sadrzi ciklus koji ukljucuje waiter.
-// Pratimo edge od waitera dalje - ako se vratimo na waitera, ciklus postoji.
 bool DeadlockGraph::would_create_cycle_after_add (const std::string& waiter) const {
     auto it = waits_for.find (waiter);
-    if (it == waits_for.end ()) return false;  // nema edgea, nema ciklusa
+    if (it == waits_for.end ()) return false;
     std::set<std::string> visited;
     return dfs (it->second, waiter, visited);
 }
 
-std::string DeadlockGraph::get_cycle_path (const std::string& waiter,
-                                            const std::string& holder) const {
+std::string DeadlockGraph::get_cycle_path (const std::string& waiter, const std::string& holder) const {
     std::vector<std::string> path;
     std::set<std::string> visited;
     path.push_back (waiter);

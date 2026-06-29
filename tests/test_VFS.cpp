@@ -59,7 +59,6 @@ TEST (RWLockTest, UnlockJednogCitaocaNeUticeNaDrugog) {
     lock.try_lock_read ("A2");
     lock.unlock_read ("A1");
 
-    // A2 dalje drži read lock, pa pisac ne smije ući
     EXPECT_FALSE (lock.try_lock_write ("A3"));
 }
 
@@ -74,7 +73,7 @@ TEST (RWLockTest, GetHolderVracaPraznoKadaJeSlobodan) {
     EXPECT_EQ (lock.get_holder (), "");
 }
 
-// ===================== InMemoryVFS =====================
+//  InMemoryVFS
 
 class InMemoryVfsTest : public ::testing::Test {
     protected:

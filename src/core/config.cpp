@@ -42,7 +42,7 @@ Config Config::load_from_file (const std::string& path) {
             config.mounts.push_back (mp);
         }
     } catch (const std::runtime_error&) {
-        throw;  // proslijedi nas exception dalje
+        throw;
     } catch (const std::exception& e) {
         throw std::runtime_error ("Greska pri citanju 'vfs.mounts': " + std::string (e.what ()));
     }

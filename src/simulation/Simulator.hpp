@@ -40,5 +40,5 @@ class Simulator {
         void try_unblock_agents ();
         void update_wait_times ();
         bool is_global_deadlock () const;
-        void mark_done (std::shared_ptr<Agent> agent);  // zatvara Gantt segment
+        void mark_done (std::shared_ptr<Agent> agent);
 };

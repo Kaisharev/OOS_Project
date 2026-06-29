@@ -14,15 +14,11 @@ class OperationExecutor {
         using Callback = std::function<void (const std::string&)>;
 
         OperationExecutor (InMemoryVFS& vfs, EventLog& event_log, DeadlockGraph& deadlock_graph,
-                           std::vector<std::string>& rejected_locks,
-                           Callback done_cb);   // poziva se kad agent zavrsi sve operacije
+                           std::vector<std::string>& rejected_locks, Callback done_cb);
 
-        // Vraca true ako je operacija potrosila tik (THINK).
         bool execute (std::shared_ptr<Agent> agent, int current_tick);
 
-        // Pokusava deblokirat sve blokirane agente.
-        void try_unblock_agents (const std::vector<std::shared_ptr<Agent>>& all_agents,
-                                 Callback unblock_cb, int current_tick);
+        void try_unblock_agents (const std::vector<std::shared_ptr<Agent>>& all_agents, Callback unblock_cb, int current_tick);
 
     private:
         InMemoryVFS& vfs;
@@ -31,12 +27,12 @@ class OperationExecutor {
         std::vector<std::string>& rejected_locks;
         Callback done_cb;
 
-        void handle_think  (std::shared_ptr<Agent> agent, int current_tick);
-        void handle_read   (std::shared_ptr<Agent> agent, int current_tick);
-        void handle_write  (std::shared_ptr<Agent> agent, int current_tick);
+        void handle_think (std::shared_ptr<Agent> agent, int current_tick);
+        void handle_read (std::shared_ptr<Agent> agent, int current_tick);
+        void handle_write (std::shared_ptr<Agent> agent, int current_tick);
         void handle_append (std::shared_ptr<Agent> agent, int current_tick);
-        void handle_open   (std::shared_ptr<Agent> agent, int current_tick);
-        void handle_close  (std::shared_ptr<Agent> agent, int current_tick);
+        void handle_open (std::shared_ptr<Agent> agent, int current_tick);
+        void handle_close (std::shared_ptr<Agent> agent, int current_tick);
 
         void mark_done (std::shared_ptr<Agent> agent, int current_tick);
 };

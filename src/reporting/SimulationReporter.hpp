@@ -8,7 +8,6 @@
 #include "../vfs/InMemoryVFS.hpp"
 #include "GanttTracker.hpp"
 
-// SRP: iskljucivo odgovoran za formatiranje i ispis rezultata simulacije.
 class SimulationReporter {
     public:
         void print_agent_summary (std::ostream& out, const std::vector<std::shared_ptr<Agent>>& agents) const;

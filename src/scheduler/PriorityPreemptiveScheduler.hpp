@@ -19,7 +19,6 @@ class PriorityPreemptiveScheduler : public IScheduler {
         void unblock_agent (const std::string& agent_id) override;
         bool all_done () const override;
 
-        // Vraca true ako u ready_queue postoji agent viseg prioriteta od datog agenta
         bool has_higher_priority_waiting (int agent_priority) const;
 
     private:

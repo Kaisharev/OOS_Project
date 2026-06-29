@@ -61,28 +61,27 @@ void Simulator::init () {
             throw std::runtime_error ("Mount neuspjesan za source='" + mount.source + "' target='" + mount.target + "'");
     }
 
-    scheduler     = std::make_unique<PriorityPreemptiveScheduler> (cfg.settings.max_running_agents);
+    scheduler = std::make_unique<PriorityPreemptiveScheduler> (cfg.settings.max_running_agents);
     gantt_tracker = std::make_unique<GanttTracker> (cfg.settings.max_running_agents);
 
-    // done_cb: Simulator::mark_done se poziva iz OperationExecutor kad agent zavrsi
-    executor = std::make_unique<OperationExecutor> (
-        *vfs, event_log, deadlock_graph, rejected_locks,
-        [this] (const std::string& id) {
-            for (auto& a : all_agents)
-                if (a->getId () == id) { mark_done (a); return; }
-        });
+    executor = std::make_unique<OperationExecutor> (*vfs, event_log, deadlock_graph, rejected_locks, [this] (const std::string& id) {
+        for (auto& a : all_agents)
+            if (a->getId () == id) {
+                mark_done (a);
+                return;
+            }
+    });
 
     for (const auto& agent_cfg : cfg.agents) {
         auto parsed = AgentParser::Parse (agent_cfg);
-        auto agent  = std::make_shared<Agent> (std::move (parsed));
+        auto agent = std::make_shared<Agent> (std::move (parsed));
         all_agents.push_back (agent);
         scheduler->add_agent (agent);
-        event_log.log (agent_cfg.arrival_time,
-                       "Agent " + agent_cfg.id + " stigao, prioritet=" + std::to_string (agent_cfg.priority));
+        event_log.log (agent_cfg.arrival_time, "Agent " + agent_cfg.id + " stigao, prioritet=" + std::to_string (agent_cfg.priority));
     }
 
     int saved_tick = current_tick;
-    current_tick   = 0;
+    current_tick = 0;
     scheduler->tick (0);
     auto slot_agents = scheduler->get_slot_agents ();
     for (int i = 0; i < (int)slot_agents.size (); i++) {
@@ -112,12 +111,14 @@ void Simulator::step () {
 
 void Simulator::try_unblock_agents () {
     executor->try_unblock_agents (
-        all_agents, [this] (const std::string& id) { scheduler->unblock_agent (id); }, current_tick);
+        all_agents,
+        [this] (const std::string& id) {
+            scheduler->unblock_agent (id);
+        },
+        current_tick);
 }
 
 void Simulator::mark_done (std::shared_ptr<Agent> agent) {
-    // Stanje i endTime vec postavljeni u OperationExecutor::mark_done,
-    // ovdje samo zatvaramo Gantt segment
     gantt_tracker->close_agent (agent->getId (), current_tick);
 }
 

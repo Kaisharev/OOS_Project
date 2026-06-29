@@ -1,4 +1,3 @@
-
 OPEN /work/a.txt write as a
 OPEN /work/b.txt write as b
 APPEND b "A1\n"

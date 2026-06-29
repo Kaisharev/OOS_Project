@@ -2,25 +2,40 @@
 
 OperationExecutor::OperationExecutor (InMemoryVFS& vfs, EventLog& event_log, DeadlockGraph& deadlock_graph,
                                       std::vector<std::string>& rejected_locks, Callback done_cb)
-    : vfs (vfs), event_log (event_log), deadlock_graph (deadlock_graph),
-      rejected_locks (rejected_locks), done_cb (std::move (done_cb)) {}
+    : vfs (vfs)
+    , event_log (event_log)
+    , deadlock_graph (deadlock_graph)
+    , rejected_locks (rejected_locks)
+    , done_cb (std::move (done_cb)) {}
 
 bool OperationExecutor::execute (std::shared_ptr<Agent> agent, int current_tick) {
     if (!agent->has_next_op ()) return false;
     const Operation& op = agent->current_op ();
     switch (op.getType ()) {
-        case OperationType::THINK:  handle_think  (agent, current_tick); return true;
-        case OperationType::READ:   handle_read   (agent, current_tick); return false;
-        case OperationType::WRITE:  handle_write  (agent, current_tick); return false;
-        case OperationType::APPEND: handle_append (agent, current_tick); return false;
-        case OperationType::OPEN:   handle_open   (agent, current_tick); return false;
-        case OperationType::CLOSE:  handle_close  (agent, current_tick); return false;
+        case OperationType::THINK:
+            handle_think (agent, current_tick);
+            return true;
+        case OperationType::READ:
+            handle_read (agent, current_tick);
+            return false;
+        case OperationType::WRITE:
+            handle_write (agent, current_tick);
+            return false;
+        case OperationType::APPEND:
+            handle_append (agent, current_tick);
+            return false;
+        case OperationType::OPEN:
+            handle_open (agent, current_tick);
+            return false;
+        case OperationType::CLOSE:
+            handle_close (agent, current_tick);
+            return false;
     }
     return false;
 }
 
-void OperationExecutor::try_unblock_agents (const std::vector<std::shared_ptr<Agent>>& all_agents,
-                                            Callback unblock_cb, int current_tick) {
+void OperationExecutor::try_unblock_agents (const std::vector<std::shared_ptr<Agent>>& all_agents, Callback unblock_cb,
+                                            int current_tick) {
     for (auto& agent : all_agents) {
         if (agent->getState () != AgentState::BLOCKED) continue;
         if (!agent->has_next_op ()) continue;
@@ -39,7 +54,7 @@ void OperationExecutor::mark_done (std::shared_ptr<Agent> agent, int current_tic
     agent->setState (AgentState::DONE);
     agent->setEndTime (current_tick);
     event_log.log (current_tick, "Agent " + agent->getId () + " zavrsio");
-    if (done_cb) done_cb (agent->getId ());  // obavijesti Simulator da zatvori Gantt segment
+    if (done_cb) done_cb (agent->getId ());
 }
 
 void OperationExecutor::handle_think (std::shared_ptr<Agent> agent, int current_tick) {
@@ -107,11 +122,9 @@ void OperationExecutor::handle_open (std::shared_ptr<Agent> agent, int current_t
         if (!holder.empty () && deadlock_graph.would_create_cycle_after_add (agent->getId ())) {
             deadlock_graph.remove_edges_for (agent->getId ());
             std::string cycle = deadlock_graph.get_cycle_path (agent->getId (), holder);
-            event_log.log (current_tick,
-                           agent->getId () + " OPEN " + op.getPath () + " -> odbijeno, nastao bi ciklus " + cycle);
-            rejected_locks.push_back ("[" + std::to_string (current_tick) + "] " + agent->getId () +
-                                      " nije dobio zakljucavanje nad " + op.getPath () + " zbog ciklusa " + cycle);
-            // Agent ostaje u slotu i nastavlja sa sljedecom operacijom
+            event_log.log (current_tick, agent->getId () + " OPEN " + op.getPath () + " -> odbijeno, nastao bi ciklus " + cycle);
+            rejected_locks.push_back ("[" + std::to_string (current_tick) + "] " + agent->getId () + " nije dobio zakljucavanje nad " +
+                                      op.getPath () + " zbog ciklusa " + cycle);
             agent->setState (AgentState::RUNNING);
             agent->advance_op ();
             if (!agent->has_next_op ()) mark_done (agent, current_tick);
@@ -122,8 +135,7 @@ void OperationExecutor::handle_open (std::shared_ptr<Agent> agent, int current_t
         return;
     }
 
-    event_log.log (current_tick,
-                   agent->getId () + " OPEN " + op.getPath () + " -> greska " + std::to_string (static_cast<int> (res)));
+    event_log.log (current_tick, agent->getId () + " OPEN " + op.getPath () + " -> greska " + std::to_string (static_cast<int> (res)));
     agent->advance_op ();
 }
 

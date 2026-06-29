@@ -48,18 +48,14 @@ void PriorityPreemptiveScheduler::check_preemption () {
         if (ready_queue.empty ()) break;
         const auto& candidate = ready_queue.top ();
         if (candidate->getPriority () < slot->getPriority ()) {
-            // Izbaceni agent: vraca se u ready_queue i oznacava da je preuzet
-            // (ne treba da se izvrsava ovaj tik jer je vec bio u slotu)
             slot->setState (AgentState::READY);
             slot->incrementPreemptions ();
-            slot->setJustPreempted (true);  // izbaceni ne treba da radi ovaj tik
+            slot->setJustPreempted (true);
             ready_queue.push (slot);
 
-            // Ulazni agent: odmah preuzima slot i moze se izvrsavati
             auto incoming = ready_queue.top ();
             ready_queue.pop ();
             incoming->setState (AgentState::RUNNING);
-            // incoming->setJustPreempted(false) je default, ne treba postavljati
             slot = incoming;
         }
     }
